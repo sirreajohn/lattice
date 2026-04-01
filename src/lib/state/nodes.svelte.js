@@ -93,3 +93,26 @@ export class NodesState {
 }
 
 export const nodesState = new NodesState();
+
+export class GlobalMetadata {
+	boardNames = $state({});
+
+	constructor() {
+		if (typeof window !== 'undefined') {
+			this.boardNames = JSON.parse(localStorage.getItem('lattice-board-names') || '{}');
+		}
+	}
+
+	setName(id, name) {
+		this.boardNames[id] = name;
+		if (typeof window !== 'undefined') {
+			localStorage.setItem('lattice-board-names', JSON.stringify(this.boardNames));
+		}
+	}
+
+	getName(id) {
+		return this.boardNames[id] || `board_${id.slice(0,6)}`;
+	}
+}
+
+export const globalMetadata = new GlobalMetadata();

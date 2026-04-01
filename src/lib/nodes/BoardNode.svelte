@@ -1,5 +1,5 @@
 <script>
-	import { nodesState } from '$lib/state/nodes.svelte.js';
+	import { nodesState, globalMetadata } from '$lib/state/nodes.svelte.js';
 	import { marked } from 'marked';
 	import DOMPurify from 'isomorphic-dompurify';
 
@@ -8,9 +8,12 @@
 	let isEditingIcon = $state(false);
 	let element = $state();
 	let iconElement = $state();
+	
+	let displayTitle = $derived(globalMetadata.boardNames[node.id] || node.data.title || '');
 
 	function handleInput(e) {
 		nodesState.updateNodeData(node.id, { title: e.target.value });
+		globalMetadata.setName(node.id, e.target.value);
 	}
 
 	function handleDblClick(e) {
@@ -32,8 +35,8 @@
 	}
 
 	let renderedTitle = $derived(
-		node.data.title 
-			? DOMPurify.sanitize(marked.parseInline(node.data.title)) 
+		displayTitle 
+			? DOMPurify.sanitize(marked.parseInline(displayTitle)) 
 			: '<span class="opacity-50 font-mono text-xs">Untitled Board</span>'
 	);
 </script>
@@ -75,11 +78,11 @@
 		<input 
 			bind:this={element}
 			class="w-full bg-transparent text-center font-mono font-bold text-sm text-[var(--color-text-primary)] focus:outline-none placeholder-opacity-50"
-			value={node.data.title || ''}
+			value={displayTitle}
 			oninput={handleInput}
 			onblur={() => (isEditing = false)}
 			onkeydown={(e) => { if (e.key === 'Enter') isEditing = false; }}
-			placeholder="Board string"
+			placeholder="Board title"
 		/>
 	{:else}
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
