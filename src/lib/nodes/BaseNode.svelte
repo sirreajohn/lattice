@@ -117,28 +117,66 @@
 		window.addEventListener('pointerup', up);
 	}
 
-	function handleAnchorPointerDown(e) {
-		e.stopPropagation();
-		const startCanvasPos = canvasState.screenToCanvas(e.clientX, e.clientY);
-		nodesState.draftConnection = { fromId: node.id, endX: startCanvasPos.x, endY: startCanvasPos.y };
+	function handleAnchorPointerDown(ev, port) {
+		ev.stopPropagation();
+		const startCanvasPos = canvasState.screenToCanvas(ev.clientX, ev.clientY);
+		nodesState.draftConnection = { fromId: node.id, fromPort: port, endX: startCanvasPos.x, endY: startCanvasPos.y, targetNodeId: null, targetPort: null };
 
 		function move(ev) {
 			const currentCanvasPos = canvasState.screenToCanvas(ev.clientX, ev.clientY);
-			nodesState.draftConnection = { ...nodesState.draftConnection, endX: currentCanvasPos.x, endY: currentCanvasPos.y };
+			
+			// Dynamic magnetic snap tracking
+			const elements = document.elementsFromPoint(ev.clientX, ev.clientY);
+			const targetNodeEl = elements.find(el => el.hasAttribute('data-node-id'));
+			
+			let candidateId = null;
+			let candidatePort = null;
+
+			if (targetNodeEl) {
+				const toId = targetNodeEl.getAttribute('data-node-id');
+				if (toId && toId !== node.id) {
+					candidateId = toId;
+					const rect = targetNodeEl.getBoundingClientRect();
+					const ports = [
+						{ id: 'top', x: rect.left + rect.width / 2, y: rect.top + 14 },
+						{ id: 'right', x: rect.right, y: rect.top + rect.height / 2 },
+						{ id: 'bottom', x: rect.left + rect.width / 2, y: rect.bottom },
+						{ id: 'left', x: rect.left, y: rect.top + rect.height / 2 }
+					];
+					
+					const taken = nodesState.connections.reduce((acc, c) => {
+						if (c.from === toId) acc.push(c.fromPort);
+						if (c.to === toId) acc.push(c.toPort);
+						return acc;
+					}, []);
+		
+					const avail = ports.filter(p => !taken.includes(p.id));
+					if (avail.length > 0) {
+						candidatePort = avail.sort((a,b) => {
+							const da = Math.pow(a.x - ev.clientX, 2) + Math.pow(a.y - ev.clientY, 2);
+							const db = Math.pow(b.x - ev.clientX, 2) + Math.pow(b.y - ev.clientY, 2);
+							return da - db;
+						})[0].id;
+					}
+				}
+			}
+
+			nodesState.draftConnection = { 
+				...nodesState.draftConnection, 
+				endX: currentCanvasPos.x, 
+				endY: currentCanvasPos.y,
+				targetNodeId: candidateId,
+				targetPort: candidatePort
+			};
 		}
 
 		function up(ev) {
 			window.removeEventListener('pointermove', move);
 			window.removeEventListener('pointerup', up);
 			
-			const elements = document.elementsFromPoint(ev.clientX, ev.clientY);
-			const targetNodeEl = elements.find(el => el.hasAttribute('data-node-id'));
-			
-			if (targetNodeEl) {
-				const toId = targetNodeEl.getAttribute('data-node-id');
-				if (toId && toId !== node.id) {
-					nodesState.addConnection(node.id, toId);
-				}
+			const draft = nodesState.draftConnection;
+			if (draft && draft.targetNodeId && draft.targetPort) {
+				nodesState.addConnection(node.id, port, draft.targetNodeId, draft.targetPort);
 			}
 			nodesState.draftConnection = null;
 		}
@@ -155,6 +193,11 @@
 	};
 
 	let NodeComponent = $derived(typeConfig[node.type]);
+	
+	let isTopTarget = $derived(nodesState.draftConnection?.targetNodeId === node.id && nodesState.draftConnection?.targetPort === 'top');
+	let isBottomTarget = $derived(nodesState.draftConnection?.targetNodeId === node.id && nodesState.draftConnection?.targetPort === 'bottom');
+	let isLeftTarget = $derived(nodesState.draftConnection?.targetNodeId === node.id && nodesState.draftConnection?.targetPort === 'left');
+	let isRightTarget = $derived(nodesState.draftConnection?.targetNodeId === node.id && nodesState.draftConnection?.targetPort === 'right');
 </script>
 
 <!-- svelte-ignore a11y_interactive_supports_focus -->
@@ -196,11 +239,36 @@
 		{/if}
 	</div>
 
-	<!-- Connection Anchor UI -->
+	<!-- Connection Anchor UI Top (Semi-circle clipped by OS header Z-index) -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div 
-		class="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[var(--color-border)] rounded-full cursor-crosshair hover:scale-125 hover:bg-[var(--color-accent)] transition-all shadow border border-[var(--color-surface)] z-10"
-		onpointerdown={handleAnchorPointerDown}
+		class="absolute top-[6px] left-1/2 -translate-x-1/2 w-4 h-4 rounded-full cursor-crosshair transition-all shadow border border-[var(--color-surface)] z-10 
+		{isTopTarget ? 'bg-[var(--color-accent)] opacity-100 scale-150 ring-2 ring-[var(--color-accent)] ring-offset-2 ring-offset-[var(--color-surface)]' : 'bg-[var(--color-border)] opacity-0 group-hover:opacity-100 hover:scale-125 hover:bg-[var(--color-accent)]'}"
+		onpointerdown={(e) => handleAnchorPointerDown(e, 'top')}
+	></div>
+
+	<!-- Connection Anchor UI Bottom -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div 
+		class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full cursor-crosshair transition-all shadow border border-[var(--color-surface)] z-10 
+		{isBottomTarget ? 'bg-[var(--color-accent)] opacity-100 scale-150 ring-2 ring-[var(--color-accent)] ring-offset-2 ring-offset-[var(--color-surface)]' : 'bg-[var(--color-border)] opacity-0 group-hover:opacity-100 hover:scale-125 hover:bg-[var(--color-accent)]'}"
+		onpointerdown={(e) => handleAnchorPointerDown(e, 'bottom')}
+	></div>
+
+	<!-- Connection Anchor UI Left -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div 
+		class="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full cursor-crosshair transition-all shadow border border-[var(--color-surface)] z-10 
+		{isLeftTarget ? 'bg-[var(--color-accent)] opacity-100 scale-150 ring-2 ring-[var(--color-accent)] ring-offset-2 ring-offset-[var(--color-surface)]' : 'bg-[var(--color-border)] opacity-0 group-hover:opacity-100 hover:scale-125 hover:bg-[var(--color-accent)]'}"
+		onpointerdown={(e) => handleAnchorPointerDown(e, 'left')}
+	></div>
+
+	<!-- Connection Anchor UI Right -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div 
+		class="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full cursor-crosshair transition-all shadow border border-[var(--color-surface)] z-10 
+		{isRightTarget ? 'bg-[var(--color-accent)] opacity-100 scale-150 ring-2 ring-[var(--color-accent)] ring-offset-2 ring-offset-[var(--color-surface)]' : 'bg-[var(--color-border)] opacity-0 group-hover:opacity-100 hover:scale-125 hover:bg-[var(--color-accent)]'}"
+		onpointerdown={(e) => handleAnchorPointerDown(e, 'right')}
 	></div>
 
 	<!-- Resize UI Handle -->

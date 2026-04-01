@@ -44,6 +44,15 @@ export class NodesState {
 		const node = this.nodes.find(n => n.id === id);
 		if (node) {
 			node.parentId = parentId;
+			
+			// Remove any existing direct connections between this node and its new parent deck
+			if (parentId) {
+				this.connections = this.connections.filter(c => 
+					!(c.from === id && c.to === parentId) && 
+					!(c.to === id && c.from === parentId)
+				);
+			}
+
 			this.saveToStorage();
 		}
 	}
@@ -55,16 +64,36 @@ export class NodesState {
 		this.saveToStorage();
 	}
 
-	addConnection(fromId, toId) {
-		// Prevent duplicates
-		if (this.connections.some(c => c.from === fromId && c.to === toId)) return;
-		this.connections.push({ id: crypto.randomUUID(), from: fromId, to: toId });
+	addConnection(fromId, fromPort, toId, toPort) {
+		const fromNode = this.nodes.find(n => n.id === fromId);
+		const toNode = this.nodes.find(n => n.id === toId);
+
+		// Prevent connections between a deck and its direct children
+		if (fromNode?.parentId === toId || toNode?.parentId === fromId) return;
+
+		// Force max 1 wire per specific port socket to prevent spaghetti limits
+		if (this.connections.some(c => 
+			(c.from === fromId && c.fromPort === fromPort) ||
+			(c.to === fromId && c.toPort === fromPort) ||
+			(c.from === toId && c.fromPort === toPort) ||
+			(c.to === toId && c.toPort === toPort)
+		)) return;
+
+		this.connections.push({ id: crypto.randomUUID(), from: fromId, fromPort, to: toId, toPort });
 		this.saveToStorage();
 	}
 
 	removeConnection(id) {
 		this.connections = this.connections.filter(c => c.id !== id);
 		this.saveToStorage();
+	}
+
+	updateConnectionLabel(id, label) {
+		const conn = this.connections.find(c => c.id === id);
+		if (conn) {
+			conn.label = label;
+			this.saveToStorage();
+		}
 	}
 
 	loadFromStorage() {
