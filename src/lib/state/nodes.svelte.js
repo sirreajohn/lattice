@@ -2,6 +2,8 @@ import { env } from '$env/dynamic/public';
 
 const DEBOUNCE_MS = parseInt(env.PUBLIC_DB_SAVE_DELAY_MS || '5000', 10);
 const MAX_CARDS = parseInt(env.PUBLIC_MAX_CARDS_PER_BOARD || '500', 10);
+const MAX_RECURSIVE_BOARDS = parseInt(env.PUBLIC_MAX_RECURSIVE_BOARDS || '10', 10);
+const DB_MODE = env.PUBLIC_DB_MODE || 'local'; // 'local' or 'temp'
 
 function debounce(func, wait) {
 	let timeout;
@@ -16,6 +18,14 @@ export class NodesState {
 	nodes = $state([]);
 	// Array of connections: { id, from: nodeId, to: nodeId }
 	connections = $state([]);
+
+	// Board Hierarchy Navigation Tracking
+	parentId = $state(null);
+	depth = $state(0);
+	lineage = $state([]); // Array of {id, name} ancestors
+
+	// Ephemeral board storage to preserve simulated database state when routing client-side in temp mode
+	_tempCache = new Map();
 
 	// Draft connection for drawing lines
 	draftConnection = $state(null);
@@ -115,10 +125,32 @@ export class NodesState {
 		}
 	}
 
-	async loadFromStorage() {
+	async loadFromStorage(seedParentId = null, seedDepth = 0) {
 		try {
 			if (typeof window !== 'undefined') {
-				const res = await fetch(`/api/boards/${this.boardId}`);
+				if (DB_MODE === 'temp') {
+					if (this._tempCache.has(this.boardId)) {
+						const cached = this._tempCache.get(this.boardId);
+						this.nodes = JSON.parse(JSON.stringify(cached.nodes));
+						this.connections = JSON.parse(JSON.stringify(cached.connections));
+						this.parentId = cached.parentId || seedParentId || null;
+						this.depth = cached.depth || seedDepth || 0;
+						this.lineage = this._computeTempLineage(this.boardId);
+						
+						if (seedParentId && !cached.parentId) this.saveToStorage();
+					} else {
+						this.parentId = seedParentId;
+						this.depth = seedDepth;
+						this.lineage = this._computeTempLineage(this.boardId);
+						if (seedParentId) this.saveToStorage();
+					}
+					return;
+				}
+
+				const url = new URL(`/api/boards/${this.boardId}`, window.location.origin);
+				if (seedParentId) url.searchParams.set('parent', seedParentId);
+
+				const res = await fetch(url);
 				if (!res.ok) throw new Error("Failed fetching board payload");
 
 				let localData = await res.json();
@@ -126,7 +158,18 @@ export class NodesState {
 				if (localData) {
 					if (localData.nodes) this.nodes = localData.nodes;
 					if (localData.connections) this.connections = localData.connections;
+					this.parentId = localData.parent_id ?? seedParentId;
+					this.depth = localData.depth !== undefined && localData.depth !== 0 ? localData.depth : seedDepth;
+					this.lineage = localData.lineage || [];
+					
+					// Seed global metadata with lineage names to ensure breadcrumbs have labels
+					this.lineage.forEach(ancestor => {
+						globalMetadata.setName(ancestor.id, ancestor.name);
+					});
+					
 					globalMetadata.setName(this.boardId, localData.name || `board_${this.boardId.slice(0, 6)}`);
+					
+					if (seedParentId && !localData.parent_id) this.saveToStorage();
 				}
 			}
 		} catch (e) {
@@ -134,14 +177,26 @@ export class NodesState {
 		}
 	}
 
-	saveToStorage = debounce(async () => {
+	async _saveInternal() {
 		try {
 			if (typeof window !== 'undefined') {
+				if (DB_MODE === 'temp') {
+					this._tempCache.set(this.boardId, {
+						parentId: this.parentId,
+						depth: this.depth,
+						nodes: JSON.parse(JSON.stringify(this.nodes)),
+						connections: JSON.parse(JSON.stringify(this.connections))
+					});
+					return;
+				}
+
 				await fetch(`/api/boards/${this.boardId}`, {
 					method: 'PUT',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
 						name: globalMetadata.getName(this.boardId),
+						parentId: this.parentId,
+						depth: this.depth,
 						nodes: this.nodes,
 						connections: this.connections
 					})
@@ -150,7 +205,37 @@ export class NodesState {
 		} catch (e) {
 			console.error("Failed to save lattice state to server:", e);
 		}
-	}, DEBOUNCE_MS);
+	}
+
+	forceSave() {
+		this._saveInternal();
+	}
+
+	saveToStorage = debounce(() => this._saveInternal(), DEBOUNCE_MS);
+
+	get maxDepth() {
+		return MAX_RECURSIVE_BOARDS;
+	}
+
+	_computeTempLineage(boardId) {
+		const path = [];
+		let currentId = boardId;
+		const visited = new Set(); // Prevent infinite recursion in case of cycles
+
+		while (currentId && currentId !== 'default' && !visited.has(currentId)) {
+			visited.add(currentId);
+			const board = this._tempCache.get(currentId);
+			const parent = board?.parentId;
+			
+			if (parent && parent !== 'default') {
+				path.unshift({ id: parent, name: globalMetadata.getName(parent) });
+				currentId = parent;
+			} else {
+				break;
+			}
+		}
+		return path;
+	}
 }
 
 export const nodesState = new NodesState();
@@ -160,14 +245,18 @@ export class GlobalMetadata {
 
 	constructor() {
 		if (typeof window !== 'undefined') {
-			this.boardNames = JSON.parse(localStorage.getItem('lattice-board-names') || '{}');
+			if (DB_MODE !== 'temp') {
+				this.boardNames = JSON.parse(localStorage.getItem('lattice-board-names') || '{}');
+			}
 		}
 	}
 
 	setName(id, name) {
 		this.boardNames[id] = name;
 		if (typeof window !== 'undefined') {
-			localStorage.setItem('lattice-board-names', JSON.stringify(this.boardNames));
+			if (DB_MODE !== 'temp') {
+				localStorage.setItem('lattice-board-names', JSON.stringify(this.boardNames));
+			}
 		}
 	}
 

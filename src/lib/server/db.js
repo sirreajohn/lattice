@@ -28,11 +28,20 @@ export async function initDb() {
 			CREATE TABLE IF NOT EXISTS boards (
 				id TEXT PRIMARY KEY,
 				name TEXT,
+				parent_id TEXT,
+				depth INTEGER DEFAULT 0,
 				nodes JSONB,
 				connections JSONB,
 				updated_at TIMESTAMP
 			);
 		`);
+
+		// Automatically patch old tables seamlessly without data purging!
+		await db.query(`
+			ALTER TABLE boards ADD COLUMN IF NOT EXISTS parent_id TEXT;
+			ALTER TABLE boards ADD COLUMN IF NOT EXISTS depth INTEGER DEFAULT 0;
+		`);
+
 		isDbInitialized = true;
 	} catch (error) {
 		console.error("Failed to initialize Server PGlite:", error);

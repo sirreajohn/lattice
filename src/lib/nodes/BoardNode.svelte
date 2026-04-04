@@ -2,6 +2,7 @@
 	import { nodesState, globalMetadata } from '$lib/state/nodes.svelte.js';
 	import { marked } from 'marked';
 	import DOMPurify from 'isomorphic-dompurify';
+	import { goto } from '$app/navigation';
 
 	let { node } = $props();
 	let isEditing = $state(false);
@@ -19,7 +20,13 @@
 	function handleDblClick(e) {
 		if (isEditing || isEditingIcon) return;
 		e.stopPropagation();
-		window.location.href = `/b/${node.id}`;
+		
+		if (nodesState.depth >= nodesState.maxDepth) {
+			alert('Maximum recurring board limit reached!');
+			return;
+		}
+
+		goto(`/b/${node.id}?parent=${nodesState.boardId}&depth=${nodesState.depth + 1}`);
 	}
 
 	function startEditing(e) {
