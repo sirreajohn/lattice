@@ -12,9 +12,9 @@
 			nodesState.nodes.length = 0;
 			nodesState.connections.length = 0;
 			nodesState.selectedNodeId = null;
-			
-			const parentId = $page.url.searchParams.get('parent') || null;
-			const depth = Number($page.url.searchParams.get('depth')) || 0;
+
+			const parentId = $page.url.searchParams.get("parent") || null;
+			const depth = Number($page.url.searchParams.get("depth")) || 0;
 			nodesState.loadFromStorage(parentId, depth);
 		}
 	});

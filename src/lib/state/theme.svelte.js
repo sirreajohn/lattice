@@ -63,7 +63,7 @@ export class ThemeState {
 					console.error("Failed to parse theme:", e);
 				}
 			}
-			
+
 			// Auto inject globally on init & update
 			$effect.root(() => {
 				$effect(() => this.applyTheme(this.colors));
@@ -87,9 +87,9 @@ export class ThemeState {
 
 	saveToStorage() {
 		if (typeof window !== 'undefined') {
-			localStorage.setItem('lattice-theme', JSON.stringify({ 
-				colors: this.colors, 
-				currentPreset: this.currentPreset 
+			localStorage.setItem('lattice-theme', JSON.stringify({
+				colors: this.colors,
+				currentPreset: this.currentPreset
 			}));
 		}
 	}
@@ -102,11 +102,11 @@ export class ThemeState {
 			styleEl.id = 'lattice-dynamic-theme';
 			document.head.appendChild(styleEl);
 		}
-		
+
 		const cssVars = Object.entries(colors)
 			.map(([key, value]) => `--color-${key}: ${value} !important;`)
 			.join('\n  ');
-			
+
 		styleEl.innerHTML = `:root {\n  ${cssVars}\n}`;
 	}
 }
