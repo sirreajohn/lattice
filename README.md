@@ -42,7 +42,7 @@ Your app will be live at `http://localhost:5173`.
 - [ ] add image support
 - [ ] add file/link support
 - [ ] freeform draw tools.
-- [ ] change card text from md to rict text.
+- [ ] change card text from md to rich text.
 - [ ] add keyboard shortcuts for tools.
 - [ ] maybe llm support??????? idk why this app needs it.
 

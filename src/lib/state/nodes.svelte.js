@@ -1,10 +1,8 @@
-import { supabase } from '$lib/supabase.js';
-import { authState } from '$lib/state/auth.svelte.js';
 import { env } from '$env/dynamic/public';
+import { db, initDb } from '$lib/db.js';
 
 const DEBOUNCE_MS = parseInt(env.PUBLIC_DEBOUNCE_TIMEOUT_MS || '5000', 10);
 const MAX_CARDS = parseInt(env.PUBLIC_MAX_CARDS_PER_BOARD || '500', 10);
-const STORAGE_MODE = env.PUBLIC_STORAGE_MODE || 'local';
 
 function debounce(func, wait) {
 	let timeout;
@@ -19,9 +17,6 @@ export class NodesState {
 	nodes = $state([]);
 	// Array of connections: { id, from: nodeId, to: nodeId }
 	connections = $state([]);
-	
-	// Networking state
-	syncStatus = $state('synced'); // 'synced', 'saving', 'error'
 
 	// Draft connection for drawing lines
 	draftConnection = $state(null);
@@ -32,7 +27,9 @@ export class NodesState {
 
 	constructor(boardId = 'default') {
 		this.boardId = boardId;
-		this.loadFromStorage();
+		if (typeof window !== 'undefined') {
+			initDb().then(() => this.loadFromStorage());
+		}
 	}
 
 	addNode(type, x, y, data = {}) {
@@ -122,41 +119,13 @@ export class NodesState {
 	async loadFromStorage() {
 		try {
 			if (typeof window !== 'undefined') {
-				if (STORAGE_MODE === 'local') {
-					const savedNodes = localStorage.getItem(`lattice-${this.boardId}-nodes`);
-					const savedConnections = localStorage.getItem(`lattice-${this.boardId}-connections`);
-					if (savedNodes) this.nodes = JSON.parse(savedNodes);
-					if (savedConnections) this.connections = JSON.parse(savedConnections);
-					return;
-				}
+				const res = await db.query('SELECT * FROM boards WHERE id = $1', [this.boardId]);
+				let localData = res.rows.length > 0 ? res.rows[0] : null;
 
-				// Cloud mode load
-				const { data, error } = await supabase
-					.from('boards')
-					.select('*')
-					.eq('id', this.boardId)
-					.single();
-
-				if (data) {
-					// Use JSON parse trick to avoid SvelteKit reactive proxy bleed
-					if (data.nodes) this.nodes = JSON.parse(JSON.stringify(data.nodes));
-					if (data.connections) this.connections = JSON.parse(JSON.stringify(data.connections));
-					
-					// Tell global metadata about the loaded name
-					globalMetadata.setName(this.boardId, data.name || `board_${this.boardId.slice(0,6)}`);
-				} else if (error && error.code === 'PGRST116') {
-					// 0 rows found: Create it
-					// Bundle owner_id if signed in so RLS accepts it
-					const newBoard = { 
-						id: this.boardId, 
-						name: `board_${this.boardId.slice(0,6)}`, 
-						nodes: this.nodes, 
-						connections: this.connections 
-					};
-					if (authState.currentUser) {
-						newBoard.owner_id = authState.currentUser.id;
-					}
-					await supabase.from('boards').insert(newBoard);
+				if (localData) {
+					if (localData.nodes) this.nodes = localData.nodes;
+					if (localData.connections) this.connections = localData.connections;
+					globalMetadata.setName(this.boardId, localData.name || `board_${this.boardId.slice(0,6)}`);
 				}
 			}
 		} catch (e) {
@@ -167,28 +136,24 @@ export class NodesState {
 	saveToStorage = debounce(async () => {
 		try {
 			if (typeof window !== 'undefined') {
-				if (STORAGE_MODE === 'local') {
-					localStorage.setItem(`lattice-${this.boardId}-nodes`, JSON.stringify(this.nodes));
-					localStorage.setItem(`lattice-${this.boardId}-connections`, JSON.stringify(this.connections));
-					return;
-				}
-
-				// Cloud mode save
-				this.syncStatus = 'saving';
-				const rawNodes = JSON.parse(JSON.stringify(this.nodes));
-				const rawConnections = JSON.parse(JSON.stringify(this.connections));
-
-				let { error } = await supabase
-					.from('boards')
-					.update({ nodes: rawNodes, connections: rawConnections, updated_at: new Date().toISOString() })
-					.eq('id', this.boardId);
-					
-				if (error) throw error;
-				this.syncStatus = 'synced';
+				await db.query(`
+					INSERT INTO boards (id, name, nodes, connections, updated_at) 
+					VALUES ($1, $2, $3::jsonb, $4::jsonb, $5)
+					ON CONFLICT (id) DO UPDATE SET 
+						name = EXCLUDED.name, 
+						nodes = EXCLUDED.nodes, 
+						connections = EXCLUDED.connections, 
+						updated_at = EXCLUDED.updated_at
+				`, [
+					this.boardId, 
+					globalMetadata.getName(this.boardId), 
+					JSON.stringify(this.nodes), 
+					JSON.stringify(this.connections), 
+					new Date().toISOString()
+				]);
 			}
 		} catch (e) {
 			console.error("Failed to save lattice state:", e);
-			this.syncStatus = 'error';
 		}
 	}, DEBOUNCE_MS);
 }
@@ -208,10 +173,6 @@ export class GlobalMetadata {
 		this.boardNames[id] = name;
 		if (typeof window !== 'undefined') {
 			localStorage.setItem('lattice-board-names', JSON.stringify(this.boardNames));
-			// Sync backward to supabase if it's the current board and we are in cloud mode
-			if (STORAGE_MODE === 'cloud' && nodesState.boardId === id) {
-				supabase.from('boards').update({ name, updated_at: new Date().toISOString() }).eq('id', id).then();
-			}
 		}
 	}
 
