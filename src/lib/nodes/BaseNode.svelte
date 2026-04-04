@@ -215,6 +215,8 @@
 <!-- svelte-ignore a11y_interactive_supports_focus -->
 <div
 	bind:this={baseElement}
+	bind:clientWidth={node.actualWidth}
+	bind:clientHeight={node.actualHeight}
 	data-node-id={node.id}
 	class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md shadow-lg shadow-black/50 transition-shadow outline-none flex flex-col overflow-hidden {nodesState.selectedNodeId === node.id ? 'ring-1 ring-[var(--color-accent)] z-20' : 'z-10'} {isNested ? 'relative' : 'absolute'}"
 	style="

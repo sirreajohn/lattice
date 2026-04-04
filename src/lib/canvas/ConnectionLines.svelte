@@ -5,19 +5,10 @@
 		const node = nodesState.nodes.find((n) => n.id === id);
 		if (!node) return null;
 		
-		let w = node.width === 'auto' ? 250 : (node.width || 250);
-		// Estimate height since auto height heavily varies by node type
-		let h = node.height === 'auto' ? 150 : (node.height || 150);
+		// Prefer the natively bound runtime DOM dimensions over hardcoded defaults
+		let w = node.actualWidth || (node.width === 'auto' ? 250 : (node.width || 250));
+		let h = node.actualHeight || (node.height === 'auto' ? 150 : (node.height || 150));
 		
-		// Map true physical boundaries mathematically if DOM injected
-		if (typeof document !== 'undefined') {
-			const el = document.querySelector(`[data-node-id="${id}"]`);
-			if (el) {
-				w = el.offsetWidth;
-				h = el.offsetHeight;
-			}
-		}
-
 		return { x: node.x, y: node.y, w, h };
 	}
 

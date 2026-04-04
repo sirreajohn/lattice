@@ -25,6 +25,7 @@
 		"@electric-sql/pglite": "^0.4.3",
 		"@sveltejs/adapter-node": "^5.5.4",
 		"bcryptjs": "^3.0.3",
+		"isomorphic-dompurify": "^3.7.1",
 		"marked": "^17.0.5"
 	}
 }

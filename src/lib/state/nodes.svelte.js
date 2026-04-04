@@ -1,7 +1,6 @@
 import { env } from '$env/dynamic/public';
-import { db, initDb } from '$lib/db.js';
 
-const DEBOUNCE_MS = parseInt(env.PUBLIC_DEBOUNCE_TIMEOUT_MS || '5000', 10);
+const DEBOUNCE_MS = parseInt(env.PUBLIC_DB_SAVE_DELAY_MS || '5000', 10);
 const MAX_CARDS = parseInt(env.PUBLIC_MAX_CARDS_PER_BOARD || '500', 10);
 
 function debounce(func, wait) {
@@ -28,7 +27,7 @@ export class NodesState {
 	constructor(boardId = 'default') {
 		this.boardId = boardId;
 		if (typeof window !== 'undefined') {
-			initDb().then(() => this.loadFromStorage());
+			this.loadFromStorage();
 		}
 	}
 
@@ -64,11 +63,11 @@ export class NodesState {
 		const node = this.nodes.find(n => n.id === id);
 		if (node) {
 			node.parentId = parentId;
-			
+
 			// Remove any existing direct connections between this node and its new parent deck
 			if (parentId) {
-				this.connections = this.connections.filter(c => 
-					!(c.from === id && c.to === parentId) && 
+				this.connections = this.connections.filter(c =>
+					!(c.from === id && c.to === parentId) &&
 					!(c.to === id && c.from === parentId)
 				);
 			}
@@ -92,7 +91,7 @@ export class NodesState {
 		if (fromNode?.parentId === toId || toNode?.parentId === fromId) return;
 
 		// Force max 1 wire per specific port socket to prevent spaghetti limits
-		if (this.connections.some(c => 
+		if (this.connections.some(c =>
 			(c.from === fromId && c.fromPort === fromPort) ||
 			(c.to === fromId && c.toPort === fromPort) ||
 			(c.from === toId && c.fromPort === toPort) ||
@@ -119,41 +118,37 @@ export class NodesState {
 	async loadFromStorage() {
 		try {
 			if (typeof window !== 'undefined') {
-				const res = await db.query('SELECT * FROM boards WHERE id = $1', [this.boardId]);
-				let localData = res.rows.length > 0 ? res.rows[0] : null;
+				const res = await fetch(`/api/boards/${this.boardId}`);
+				if (!res.ok) throw new Error("Failed fetching board payload");
+
+				let localData = await res.json();
 
 				if (localData) {
 					if (localData.nodes) this.nodes = localData.nodes;
 					if (localData.connections) this.connections = localData.connections;
-					globalMetadata.setName(this.boardId, localData.name || `board_${this.boardId.slice(0,6)}`);
+					globalMetadata.setName(this.boardId, localData.name || `board_${this.boardId.slice(0, 6)}`);
 				}
 			}
 		} catch (e) {
-			console.error("Failed to load lattice state:", e);
+			console.error("Failed to load lattice state from server:", e);
 		}
 	}
 
 	saveToStorage = debounce(async () => {
 		try {
 			if (typeof window !== 'undefined') {
-				await db.query(`
-					INSERT INTO boards (id, name, nodes, connections, updated_at) 
-					VALUES ($1, $2, $3::jsonb, $4::jsonb, $5)
-					ON CONFLICT (id) DO UPDATE SET 
-						name = EXCLUDED.name, 
-						nodes = EXCLUDED.nodes, 
-						connections = EXCLUDED.connections, 
-						updated_at = EXCLUDED.updated_at
-				`, [
-					this.boardId, 
-					globalMetadata.getName(this.boardId), 
-					JSON.stringify(this.nodes), 
-					JSON.stringify(this.connections), 
-					new Date().toISOString()
-				]);
+				await fetch(`/api/boards/${this.boardId}`, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						name: globalMetadata.getName(this.boardId),
+						nodes: this.nodes,
+						connections: this.connections
+					})
+				});
 			}
 		} catch (e) {
-			console.error("Failed to save lattice state:", e);
+			console.error("Failed to save lattice state to server:", e);
 		}
 	}, DEBOUNCE_MS);
 }
@@ -177,7 +172,7 @@ export class GlobalMetadata {
 	}
 
 	getName(id) {
-		return this.boardNames[id] || `board_${id.slice(0,6)}`;
+		return this.boardNames[id] || `board_${id.slice(0, 6)}`;
 	}
 }
 
