@@ -1,7 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { db, initDb } from '$lib/server/db.js';
+import { env } from '$env/dynamic/public';
 
-export async function GET({ params, url }) {
+export async function GET({ params, url, locals }) {
 	const { id } = params;
 	const parentIdParam = url.searchParams.get('parent');
 	await initDb();
@@ -29,6 +30,17 @@ export async function GET({ params, url }) {
 
 		if (res.rows.length > 0) {
 			const board = res.rows[0];
+
+			// Ownership Check & Auto-Claiming logic for unassigned legacy boards
+			if (locals.user && env.PUBLIC_DB_MODE !== 'temp') {
+				if (board.user_id === null) {
+					await db.query('UPDATE boards SET user_id = $1 WHERE id = $2', [locals.user.id, id]);
+					board.user_id = locals.user.id;
+				} else if (board.user_id !== locals.user.id) {
+					return json({ error: "Unauthorized access to board" }, { status: 403 });
+				}
+			}
+
 			board.lineage = lineageRes.rows;
 
 			// Fetch names for all child boards shown on this canvas to ensure titles are synced
@@ -56,22 +68,31 @@ export async function GET({ params, url }) {
 	}
 }
 
-export async function PUT({ params, request }) {
+export async function PUT({ params, request, locals }) {
 	const { id } = params;
 	await initDb();
 	
 	try {
 		const payload = await request.json();
+
+		// Prevent updating boards that belong to another user
+		if (locals.user && env.PUBLIC_DB_MODE !== 'temp') {
+			const checkRes = await db.query('SELECT user_id FROM boards WHERE id = $1', [id]);
+			if (checkRes.rows.length > 0 && checkRes.rows[0].user_id !== null && checkRes.rows[0].user_id !== locals.user.id) {
+				return json({ error: "Unauthorized modification" }, { status: 403 });
+			}
+		}
 		
 		await db.query(`
-			INSERT INTO boards (id, name, parent_id, depth, nodes, connections, updated_at) 
-			VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7)
+			INSERT INTO boards (id, name, parent_id, depth, nodes, connections, user_id, updated_at) 
+			VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8)
 			ON CONFLICT (id) DO UPDATE SET 
 				name = EXCLUDED.name, 
 				parent_id = EXCLUDED.parent_id,
 				depth = EXCLUDED.depth,
 				nodes = EXCLUDED.nodes, 
 				connections = EXCLUDED.connections, 
+				user_id = COALESCE(boards.user_id, EXCLUDED.user_id),
 				updated_at = EXCLUDED.updated_at
 		`, [
 			id, 
@@ -80,6 +101,7 @@ export async function PUT({ params, request }) {
 			payload.depth || 0,
 			JSON.stringify(payload.nodes || []), 
 			JSON.stringify(payload.connections || []), 
+			locals.user ? locals.user.id : null,
 			new Date().toISOString()
 		]);
 		

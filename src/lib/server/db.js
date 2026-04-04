@@ -34,6 +34,18 @@ export async function initDb() {
 				connections JSONB,
 				updated_at TIMESTAMP
 			);
+
+			CREATE TABLE IF NOT EXISTS users (
+				id TEXT PRIMARY KEY,
+				username TEXT UNIQUE,
+				password_hash TEXT
+			);
+
+			CREATE TABLE IF NOT EXISTS sessions (
+				token TEXT PRIMARY KEY,
+				user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+				expires_at TIMESTAMP
+			);
 		`);
 
 		// Automatically patch old tables seamlessly without data purging!
@@ -47,6 +59,12 @@ export async function initDb() {
 		
 		try {
 			await db.query(`ALTER TABLE boards ADD COLUMN IF NOT EXISTS depth INTEGER DEFAULT 0;`);
+		} catch (e) {
+			if (!e.message.includes('already exists')) throw e;
+		}
+		
+		try {
+			await db.query(`ALTER TABLE boards ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id) ON DELETE CASCADE;`);
 		} catch (e) {
 			if (!e.message.includes('already exists')) throw e;
 		}

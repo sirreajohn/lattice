@@ -45,3 +45,8 @@ body {
 
 .markdown-inline p { display: inline; margin: 0; }
 .markdown-inline strong { font-weight: bold; color: var(--color-text-primary); }
+
+.bg-dot-pattern {
+  background-image: radial-gradient(var(--color-border) 1.5px, transparent 1.5px);
+  background-size: 30px 30px;
+}
