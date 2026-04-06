@@ -1,5 +1,4 @@
 import { PGlite } from '@electric-sql/pglite';
-import { vector } from '@electric-sql/pglite/vector';
 import fs from 'fs';
 
 export let db = null;
@@ -12,22 +11,21 @@ export async function initDb() {
 	
 	initializationPromise = (async () => {
 		try {
-			// Ensure the data directory exists before PGlite tries to mount itself
+			console.time('pglite-init');
+
 			if (!fs.existsSync('./data')) {
 				fs.mkdirSync('./data', { recursive: true });
 			}
 
-			// Server-side execution only! 
-			db = new PGlite('./data/lattice-db', {
-				extensions: { vector }
-			});
+			// Skip the vector extension — it loads a massive WASM binary
+			// that can take 60+ seconds on low-resource servers, causing 524s.
+			db = new PGlite('./data/lattice-db');
 			
-			// Ensure PGlite is actually ready before executing
 			await db.waitReady;
+			console.timeEnd('pglite-init');
 
+			console.time('pglite-schema');
 			await db.exec(`
-				CREATE EXTENSION IF NOT EXISTS vector;
-			
 				CREATE TABLE IF NOT EXISTS boards (
 					id TEXT PRIMARY KEY,
 					name TEXT,
@@ -51,7 +49,7 @@ export async function initDb() {
 				);
 			`);
 
-			// Automatically patch old tables seamlessly without data purging!
+			// Patch columns individually (PGlite can crash with multiple ALTERs in one exec)
 			const patches = [
 				`ALTER TABLE boards ADD COLUMN IF NOT EXISTS parent_id TEXT;`,
 				`ALTER TABLE boards ADD COLUMN IF NOT EXISTS depth INTEGER DEFAULT 0;`,
@@ -67,13 +65,19 @@ export async function initDb() {
 				}
 			}
 
+			console.timeEnd('pglite-schema');
 			isDbInitialized = true;
+			console.log('PGlite ready');
 		} catch (error) {
 			console.error("Failed to initialize Server PGlite:", error);
-			initializationPromise = null; // Allow retry on failure
+			initializationPromise = null;
 			throw error;
 		}
 	})();
 
 	return initializationPromise;
 }
+
+// Eagerly start initialization at module load so it happens during server boot,
+// not on the first user request (which would cause a Cloudflare 524 timeout).
+initDb().catch(() => {});
