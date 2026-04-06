@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { db, initDb } from '$lib/server/db.js';
 import { env } from '$env/dynamic/public';
 
+/** @param {import('@sveltejs/kit').RequestEvent} event */
 export async function GET({ params, url, locals }) {
 	const { id } = params;
 	const parentIdParam = url.searchParams.get('parent');
@@ -68,6 +69,7 @@ export async function GET({ params, url, locals }) {
 	}
 }
 
+/** @param {import('@sveltejs/kit').RequestEvent} event */
 export async function PUT({ params, request, locals }) {
 	const { id } = params;
 	await initDb();
@@ -111,5 +113,30 @@ export async function PUT({ params, request, locals }) {
 	} catch (error) {
 		console.error("PUT board error:", error);
 		return json({ error: "Failed to save board" }, { status: 500 });
+	}
+}
+
+/** @param {import('@sveltejs/kit').RequestEvent} event */
+export async function DELETE({ params, locals }) {
+	const { id } = params;
+	if (id === 'default') {
+		return json({ error: "Cannot delete initial home board" }, { status: 400 });
+	}
+
+	await initDb();
+	try {
+        // @ts-ignore
+		if (locals.user && env.PUBLIC_DB_MODE !== 'temp') {
+			const checkRes = await db.query('SELECT user_id FROM boards WHERE id = $1', [id]);
+			if (checkRes.rows.length > 0 && checkRes.rows[0].user_id !== null && checkRes.rows[0].user_id !== locals.user.id) {
+				return json({ error: "Unauthorized modification" }, { status: 403 });
+			}
+		}
+
+		await db.query('DELETE FROM boards WHERE id = $1', [id]);
+		return json({ success: true });
+	} catch (error) {
+		console.error("DELETE board error:", error);
+		return json({ error: "Failed to delete board" }, { status: 500 });
 	}
 }

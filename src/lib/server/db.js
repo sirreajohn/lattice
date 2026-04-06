@@ -54,25 +54,25 @@ export async function initDb() {
 		try {
 			await db.query(`ALTER TABLE boards ADD COLUMN IF NOT EXISTS parent_id TEXT;`);
 		} catch (e) {
-			if (!e.message.includes('already exists')) throw e;
+			if (e instanceof Error && !e.message.includes('already exists')) throw e;
 		}
 		
 		try {
 			await db.query(`ALTER TABLE boards ADD COLUMN IF NOT EXISTS depth INTEGER DEFAULT 0;`);
 		} catch (e) {
-			if (!e.message.includes('already exists')) throw e;
+			if (e instanceof Error && !e.message.includes('already exists')) throw e;
 		}
 		
 		try {
 			await db.query(`ALTER TABLE boards ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id) ON DELETE CASCADE;`);
 		} catch (e) {
-			if (!e.message.includes('already exists')) throw e;
+			if (e instanceof Error && !e.message.includes('already exists')) throw e;
 		}
 
 		try {
 			await db.query(`ALTER TABLE boards ADD COLUMN IF NOT EXISTS drawings JSONB DEFAULT '[]'::jsonb;`);
 		} catch (e) {
-			if (!e.message.includes('already exists')) throw e;
+			if (e instanceof Error && !e.message.includes('already exists')) throw e;
 		}
 
 		isDbInitialized = true;

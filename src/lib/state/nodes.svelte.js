@@ -57,12 +57,12 @@ export class NodesState {
 		this.saveToStorage();
 	}
 
-	addNode(type, x, y, data = {}) {
+	addNode(type, x, y, data = {}, forcedId = null) {
 		if (this.nodes.length >= MAX_CARDS) {
 			alert(`Board limit reached: maximum of ${MAX_CARDS} cards allowed.`);
 			return null;
 		}
-		const id = crypto.randomUUID();
+		const id = forcedId || crypto.randomUUID();
 		this.nodes.push({ id, type, x, y, parentId: null, width: 250, height: "auto", data });
 		this.saveToStorage();
 		return id;
