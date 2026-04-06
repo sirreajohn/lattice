@@ -8,9 +8,12 @@
 
 	let { children } = $props();
 	/** @type {HTMLDivElement} */
+	// @ts-ignore
 	let canvasElement = $state();
+	/** @type {string | null} */
 	let activeDrawingId = $state(null);
 
+	/** @param {PointerEvent} e */
 	function handlePointerDown(e) {
 		const isLeftClick = e.button === 0;
 
@@ -28,6 +31,7 @@
 			};
 			nodesState.addDrawing(newDrawing);
 
+			/** @param {PointerEvent} ev */
 			function handlePencilMove(ev) {
 				const pt = canvasState.screenToCanvas(ev.clientX, ev.clientY);
 				const d = nodesState.drawings.find(
@@ -65,6 +69,7 @@
 			const initialCanvasX = canvasState.x;
 			const initialCanvasY = canvasState.y;
 
+			/** @param {PointerEvent} ev */
 			function handlePointerMove(ev) {
 				canvasState.x = initialCanvasX + (ev.clientX - startX);
 				canvasState.y = initialCanvasY + (ev.clientY - startY);
@@ -80,6 +85,7 @@
 		}
 	}
 
+	/** @param {WheelEvent} e */
 	function handleWheel(e) {
 		if (!e.ctrlKey && !e.metaKey) {
 			return;
@@ -105,8 +111,15 @@
 		canvasState.scale = newScale;
 	}
 
+	/** 
+	 * @param {File} file 
+	 * @param {number} x 
+	 * @param {number} y 
+	 * @param {boolean} isScreenPos 
+	 */
 	function processImageFile(file, x, y, isScreenPos) {
 		const reader = new FileReader();
+		/** @param {any} event */
 		reader.onload = (event) => {
 			const img = new Image();
 			img.onload = () => {
@@ -165,6 +178,7 @@
 		reader.readAsDataURL(file);
 	}
 
+	/** @param {DragEvent} e */
 	function handleDrop(e) {
 		e.preventDefault();
 		if (e.dataTransfer && e.dataTransfer.files) {
@@ -201,6 +215,7 @@
 		}
 	}
 
+	/** @param {ClipboardEvent} e */
 	function handlePaste(e) {
 		if (
 			document.activeElement &&
@@ -236,6 +251,8 @@
 	ondragover={(e) => e.preventDefault()}
 	ondrop={handleDrop}
 	class="w-full h-screen relative overflow-hidden text-[var(--color-text-primary)] bg-[var(--color-canvas)] select-none touch-none"
+	role="application"
+	aria-label="Infinite Canvas"
 	style="
 		background-image: radial-gradient(var(--color-border) 1.5px, transparent 1.5px);
 		background-position: {canvasState.x}px {canvasState.y}px;
