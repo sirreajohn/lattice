@@ -6,6 +6,7 @@
 	import ColumnNode from './ColumnNode.svelte';
 	import VideoNode from './VideoNode.svelte';
 	import ImageNode from './ImageNode.svelte';
+	import DocsNode from './DocsNode.svelte';
 
 	let { node } = $props();
 
@@ -126,6 +127,10 @@
 		window.addEventListener('pointerup', up);
 	}
 
+	/** 
+	 * @param {PointerEvent} ev 
+	 * @param {string} port 
+	 */
 	function handleAnchorPointerDown(ev, port) {
 		ev.stopPropagation();
 		ev.preventDefault();
@@ -204,6 +209,7 @@
 		column: ColumnNode,
 		video: VideoNode,
 		image: ImageNode,
+		docs: DocsNode,
 	};
 
 	let NodeComponent = $derived(typeConfig[node.type]);
