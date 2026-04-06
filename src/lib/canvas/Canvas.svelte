@@ -58,12 +58,100 @@
 		canvasState.y = mouseY - (mouseY - canvasState.y) * actualScaleChange;
 		canvasState.scale = newScale;
 	}
+
+	function processImageFile(file, x, y, isScreenPos) {
+		const reader = new FileReader();
+		reader.onload = (event) => {
+			const img = new Image();
+			img.onload = () => {
+				const canvas = document.createElement('canvas');
+				let width = img.width;
+				let height = img.height;
+				const MAX_DIM = 1024;
+				
+				if (width > MAX_DIM || height > MAX_DIM) {
+					if (width > height) {
+						height = Math.round(height * (MAX_DIM / width));
+						width = MAX_DIM;
+					} else {
+						width = Math.round(width * (MAX_DIM / height));
+						height = MAX_DIM;
+					}
+				}
+				
+				canvas.width = width;
+				canvas.height = height;
+				const ctx = canvas.getContext('2d');
+				ctx.drawImage(img, 0, 0, width, height);
+				
+				const dataUrl = canvas.toDataURL('image/webp', 0.8);
+				
+				let nodeW = width;
+				let nodeH = height;
+				if (nodeW > 400) {
+					nodeH = Math.round(height * (400 / width));
+					nodeW = 400;
+				}
+
+				let finalX = x;
+				let finalY = y;
+				if (isScreenPos) {
+					const canvasPos = canvasState.screenToCanvas(x, y);
+					finalX = canvasPos.x;
+					finalY = canvasPos.y;
+				}
+
+				const id = nodesState.addNode('image', finalX, finalY, { src: dataUrl, alt: file.name || 'Pasted Image' });
+				const node = nodesState.nodes.find(n => n.id === id);
+				if (node) {
+					node.width = nodeW;
+					node.height = nodeH;
+					nodesState.saveToStorage();
+				}
+			};
+			img.src = event.target.result;
+		};
+		reader.readAsDataURL(file);
+	}
+
+	function handleDrop(e) {
+		e.preventDefault();
+		if (e.dataTransfer && e.dataTransfer.files) {
+			for (let i = 0; i < e.dataTransfer.files.length; i++) {
+				const file = e.dataTransfer.files[i];
+				if (file.type.startsWith('image/')) {
+					processImageFile(file, e.clientX, e.clientY, true);
+					break; 
+				}
+			}
+		}
+	}
+
+	function handlePaste(e) {
+		if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+		if (e.clipboardData && e.clipboardData.items) {
+			for (let i = 0; i < e.clipboardData.items.length; i++) {
+				const item = e.clipboardData.items[i];
+				if (item.kind === 'file' && item.type.startsWith('image/')) {
+					const blob = item.getAsFile();
+					if (blob) {
+						processImageFile(blob, window.innerWidth / 2, window.innerHeight / 2, true);
+						break;
+					}
+				}
+			}
+		}
+	}
 </script>
+
+<svelte:window onpaste={handlePaste} />
 
 <div
 	bind:this={canvasElement}
 	onpointerdown={handlePointerDown}
 	onwheel={handleWheel}
+	ondragover={(e) => e.preventDefault()}
+	ondrop={handleDrop}
 	class="w-full h-screen relative overflow-hidden text-[var(--color-text-primary)] bg-[var(--color-canvas)] select-none touch-none"
 	style="
 		background-image: radial-gradient(var(--color-border) 1.5px, transparent 1.5px);

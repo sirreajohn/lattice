@@ -20,6 +20,18 @@
 		nodesState.addNode('column', canvasCenter.x - 125, canvasCenter.y - 75, { title: '' });
 	}
 
+	function addImage() {
+		const screenCenter = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+		const canvasCenter = canvasState.screenToCanvas(screenCenter.x, screenCenter.y);
+		const id = nodesState.addNode('image', canvasCenter.x - 125, canvasCenter.y - 125, { src: '', alt: '' });
+		const node = nodesState.nodes.find(n => n.id === id);
+		if (node) {
+			node.width = 250;
+			node.height = 250;
+			nodesState.saveToStorage();
+		}
+	}
+
 	function addVideo() {
 		const screenCenter = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
 		const canvasCenter = canvasState.screenToCanvas(screenCenter.x, screenCenter.y);
@@ -75,6 +87,14 @@
 	>
 		<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m10 11 5 3-5 3v-6Z"/></svg>
 		<span class="absolute bottom-full mb-3 opacity-0 group-hover:opacity-100 bg-[#000] border border-[var(--color-border)] text-white text-[10px] uppercase font-bold tracking-wider rounded px-2 py-1 whitespace-nowrap pointer-events-none transition-opacity">Video</span>
+	</button>
+
+	<button 
+		onclick={addImage}
+		class="group relative flex items-center justify-center w-8 h-8 text-[var(--color-text-secondary)] hover:text-white hover:bg-neutral-800 rounded-md transition-colors"
+	>
+		<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+		<span class="absolute bottom-full mb-3 opacity-0 group-hover:opacity-100 bg-[#000] border border-[var(--color-border)] text-white text-[10px] uppercase font-bold tracking-wider rounded px-2 py-1 whitespace-nowrap pointer-events-none transition-opacity">Image</span>
 	</button>
 
 	<div class="h-5 w-px bg-[var(--color-border)] mx-1"></div>

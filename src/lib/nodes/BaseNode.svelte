@@ -5,6 +5,7 @@
 	import BoardNode from './BoardNode.svelte';
 	import ColumnNode from './ColumnNode.svelte';
 	import VideoNode from './VideoNode.svelte';
+	import ImageNode from './ImageNode.svelte';
 
 	let { node } = $props();
 
@@ -202,6 +203,7 @@
 		board: BoardNode,
 		column: ColumnNode,
 		video: VideoNode,
+		image: ImageNode,
 	};
 
 	let NodeComponent = $derived(typeConfig[node.type]);
