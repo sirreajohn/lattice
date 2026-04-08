@@ -226,7 +226,7 @@
 	bind:clientWidth={node.actualWidth}
 	bind:clientHeight={node.actualHeight}
 	data-node-id={node.id}
-	class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md shadow-lg shadow-black/50 transition-shadow outline-none flex flex-col overflow-hidden {nodesState.selectedNodeId === node.id ? 'ring-1 ring-[var(--color-accent)] z-20' : 'z-10'} {isNested ? 'relative' : 'absolute'}"
+	class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md shadow-lg shadow-black/50 transition-shadow outline-none flex flex-col overflow-hidden select-text {nodesState.selectedNodeId === node.id ? 'ring-1 ring-[var(--color-accent)] z-20' : 'z-10'} {isNested ? 'relative' : 'absolute'}"
 	style="
 		{isNested ? '' : `transform: translate(${node.x}px, ${node.y}px);`} 
 		width: {isNested ? '100%' : node.width + 'px'}; 

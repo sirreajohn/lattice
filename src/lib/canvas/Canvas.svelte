@@ -15,6 +15,19 @@
 
 	/** @param {PointerEvent} e */
 	function handlePointerDown(e) {
+		// 1. Allow interacting with inputs, textareas, or things that are contenteditable.
+		const target = /** @type {HTMLElement} */ (e.target);
+		if (
+			target && (
+				["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(
+					target.tagName,
+				) ||
+				target.closest("[contenteditable]")
+			)
+		) {
+			return;
+		}
+
 		const isLeftClick = e.button === 0;
 
 		// Drawing logic
@@ -60,7 +73,15 @@
 			return;
 		}
 
-		nodesState.selectedNodeId = null;
+		// 2. If clicking on something that bubbled here (not caught by nodes)
+		// and it's specifically the canvas background, deselect and blur.
+		if (e.target === canvasElement) {
+			const activeEl = /** @type {HTMLElement} */ (document.activeElement);
+			if (activeEl && typeof activeEl.blur === 'function') {
+				activeEl.blur();
+			}
+			nodesState.selectedNodeId = null;
+		}
 
 		if (e.button === 0 || e.button === 1 || e.altKey) {
 			e.preventDefault();
