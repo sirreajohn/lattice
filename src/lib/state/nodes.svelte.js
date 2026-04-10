@@ -1,5 +1,6 @@
 import { env } from '$env/dynamic/public';
 import { canvasState } from './canvas.svelte.js';
+import { initLocalDb } from './db.client.js';
 
 const DEBOUNCE_MS = parseInt(env.PUBLIC_DB_SAVE_DELAY_MS || '5000', 10);
 const MAX_CARDS = parseInt(env.PUBLIC_MAX_CARDS_PER_BOARD || '500', 10);
@@ -8,10 +9,12 @@ const DB_MODE = env.PUBLIC_DB_MODE || 'local'; // 'local' or 'temp'
 
 function debounce(func, wait) {
 	let timeout;
-	return function (...args) {
+	const debounced = function (...args) {
 		clearTimeout(timeout);
 		timeout = setTimeout(() => func(...args), wait);
 	};
+	debounced.cancel = () => clearTimeout(timeout);
+	return debounced;
 }
 
 export class NodesState {
@@ -34,6 +37,11 @@ export class NodesState {
 	// Ephemeral board storage to preserve simulated database state when routing client-side in temp mode
 	_tempCache = new Map();
 
+	// Guards against stale async loadFromStorage calls overwriting current board state
+	_loadGeneration = 0;
+	/** @type {Promise<void> | null} */
+	_savePending = null;
+
 	// Draft connection for drawing lines
 	draftConnection = $state(null);
 
@@ -45,6 +53,9 @@ export class NodesState {
 		this.boardId = boardId;
 		if (typeof window !== 'undefined') {
 			this.loadFromStorage();
+			window.addEventListener('beforeunload', () => {
+				this.forceSave();
+			});
 		}
 	}
 
@@ -143,102 +154,218 @@ export class NodesState {
 	}
 
 	async loadFromStorage(seedParentId = null, seedDepth = 0) {
+		const loadGen = ++this._loadGeneration;
+		const targetBoardId = this.boardId;
+
+		// Wait for any in-flight save to flush before reading, to avoid reading stale PGlite state
+		if (this._savePending) {
+			try { await this._savePending; } catch (_) { /* ignore */ }
+			if (this._loadGeneration !== loadGen) return; // Bail if superseded during wait
+		}
+
 		try {
 			if (typeof window !== 'undefined') {
 				if (DB_MODE === 'temp') {
-					if (this._tempCache.has(this.boardId)) {
-						const cached = this._tempCache.get(this.boardId);
+					if (this._tempCache.has(targetBoardId)) {
+						const cached = this._tempCache.get(targetBoardId);
 						this.nodes = JSON.parse(JSON.stringify(cached.nodes));
 						this.connections = JSON.parse(JSON.stringify(cached.connections));
 						this.drawings = JSON.parse(JSON.stringify(cached.drawings || []));
 						this.parentId = cached.parentId || seedParentId || null;
 						this.depth = cached.depth || seedDepth || 0;
-						this.lineage = this._computeTempLineage(this.boardId);
+						this.lineage = this._computeTempLineage(targetBoardId);
 						
 						if (seedParentId && !cached.parentId) this.saveToStorage();
 					} else {
 						this.parentId = seedParentId;
 						this.depth = seedDepth;
-						this.lineage = this._computeTempLineage(this.boardId);
+						this.lineage = this._computeTempLineage(targetBoardId);
 						if (seedParentId) this.saveToStorage();
 					}
 					return;
 				}
 
-				const url = new URL(`/api/boards/${this.boardId}`, window.location.origin);
-				if (seedParentId) url.searchParams.set('parent', seedParentId);
+				const localDb = await initLocalDb();
+				if (this._loadGeneration !== loadGen) return;
 
-				const res = await fetch(url);
-				if (!res.ok) throw new Error("Failed fetching board payload");
+				// Rest Sync Pipeline (Read Path)
+				// Fetch canonical state from the upstream server and hydrate local DB if the server is newer.
+				try {
+					const response = await fetch(`/api/boards/${targetBoardId}`);
+					if (this._loadGeneration !== loadGen) return;
 
-				let localData = await res.json();
+					if (response.ok) {
+						const serverBoard = await response.json();
+						if (this._loadGeneration !== loadGen) return;
 
-				if (localData) {
-					if (localData.nodes) this.nodes = localData.nodes;
-					if (localData.connections) this.connections = localData.connections;
-					if (localData.drawings) this.drawings = localData.drawings;
+						const checkRes = await localDb.query('SELECT updated_at FROM boards WHERE id = $1', [targetBoardId]);
+						if (this._loadGeneration !== loadGen) return;
+
+						const localDate = checkRes.rows.length > 0 && checkRes.rows[0].updated_at 
+							? new Date(checkRes.rows[0].updated_at).getTime() 
+							: 0;
+						
+						const serverDate = serverBoard.updated_at 
+							? new Date(serverBoard.updated_at).getTime() 
+							: 0;
+
+						// If server is strictly newer, blindly copy it into PGlite to hydrate optimistic state
+						if (serverDate > localDate) {
+							await localDb.query(`
+								INSERT INTO boards (id, name, parent_id, depth, nodes, connections, drawings, updated_at)
+								VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+								ON CONFLICT (id) DO UPDATE SET
+									name = EXCLUDED.name,
+									parent_id = EXCLUDED.parent_id,
+									depth = EXCLUDED.depth,
+									nodes = EXCLUDED.nodes,
+									connections = EXCLUDED.connections,
+									drawings = EXCLUDED.drawings,
+									updated_at = EXCLUDED.updated_at;
+							`, [
+								serverBoard.id,
+								serverBoard.name,
+								serverBoard.parent_id || serverBoard.parentId || null,
+								serverBoard.depth || 0,
+								JSON.stringify(serverBoard.nodes || []),
+								JSON.stringify(serverBoard.connections || []),
+								JSON.stringify(serverBoard.drawings || []),
+								serverBoard.updated_at || new Date().toISOString()
+							]);
+							if (this._loadGeneration !== loadGen) return;
+						}
+					}
+				} catch (e) {
+					console.warn("Failed to ping upstream server. Operating in pure offline mode.", e);
+				}
+
+				if (this._loadGeneration !== loadGen) return;
+
+				const res = await localDb.query('SELECT * FROM boards WHERE id = $1', [targetBoardId]);
+				if (this._loadGeneration !== loadGen) return;
+
+				if (res.rows.length > 0) {
+					const localData = res.rows[0];
+					if (localData.nodes) this.nodes = typeof localData.nodes === 'string' ? JSON.parse(localData.nodes) : localData.nodes;
+					if (localData.connections) this.connections = typeof localData.connections === 'string' ? JSON.parse(localData.connections) : localData.connections;
+					if (localData.drawings) this.drawings = typeof localData.drawings === 'string' ? JSON.parse(localData.drawings) : localData.drawings;
 					this.parentId = localData.parent_id ?? seedParentId;
 					this.depth = localData.depth !== undefined && localData.depth !== 0 ? localData.depth : seedDepth;
-					this.lineage = localData.lineage || [];
 					
-					// Seed global metadata with lineage names to ensure breadcrumbs have labels
+					// Reconstruct lineage recursively straight from the local DB!
+					const lineageRes = await localDb.query(`
+						WITH RECURSIVE lineage AS (
+							SELECT id, name, parent_id, depth FROM boards WHERE id = $1
+							UNION
+							SELECT b.id, b.name, b.parent_id, b.depth FROM boards b
+							INNER JOIN lineage l ON l.parent_id = b.id
+						)
+						SELECT id, COALESCE(name, 'board_' || substr(id, 1, 6)) as name FROM lineage WHERE id != $1 ORDER BY depth ASC;
+					`, [targetBoardId]);
+					if (this._loadGeneration !== loadGen) return;
+					
+					this.lineage = lineageRes.rows;
+					
+					// Seed global metadata
 					this.lineage.forEach(ancestor => {
 						globalMetadata.setName(ancestor.id, ancestor.name);
 					});
-
-					// Seed names for child boards found on the canvas
-					if (localData.childMetadata) {
-						Object.entries(localData.childMetadata).forEach(([id, name]) => {
-							globalMetadata.setName(id, name);
-						});
-					}
 					
 					if (localData.name) {
-						globalMetadata.setName(this.boardId, localData.name);
+						globalMetadata.setName(targetBoardId, localData.name);
 					}
 					
 					if (seedParentId && !localData.parent_id) this.saveToStorage();
+				} else {
+					// Blank board initialized locally
+					this.parentId = seedParentId;
+					this.depth = seedDepth;
+					if (seedParentId) this.saveToStorage();
 				}
 			}
 		} catch (e) {
-			console.error("Failed to load lattice state from server:", e);
+			console.error("Failed to load local DB state:", e);
 		}
 	}
 
 	async _saveInternal() {
+		// purely synchronous snaphot...
+		const snapBoardId = this.boardId;
+		const snapParentId = this.parentId;
+		const snapDepth = this.depth;
+		
+		// Force deep clone to sever all proxy bonds synchronously.
+		const snapNodes = JSON.stringify($state.snapshot(this.nodes));
+		const snapConnections = JSON.stringify($state.snapshot(this.connections));
+		const snapDrawings = JSON.stringify($state.snapshot(this.drawings));
+		const snapName = globalMetadata.getName(this.boardId);
+		
+		console.log(`[SYNC RUN] Generating payload for board: ${snapBoardId} | Nodes Count: ${this.nodes.length} | Snapshot Size: ${snapNodes.length}`);
+
 		try {
 			if (typeof window !== 'undefined') {
 				if (DB_MODE === 'temp') {
-					this._tempCache.set(this.boardId, {
-						parentId: this.parentId,
-						depth: this.depth,
-						nodes: JSON.parse(JSON.stringify(this.nodes)),
-						connections: JSON.parse(JSON.stringify(this.connections)),
-						drawings: JSON.parse(JSON.stringify(this.drawings))
+					this._tempCache.set(snapBoardId, {
+						parentId: snapParentId,
+						depth: snapDepth,
+						nodes: JSON.parse(snapNodes),
+						connections: JSON.parse(snapConnections),
+						drawings: JSON.parse(snapDrawings)
 					});
 					return;
 				}
 
-				await fetch(`/api/boards/${this.boardId}`, {
+				const localDb = await initLocalDb();
+				
+				// Standard explicit Upsert syntax for PostgreSQL/PGlite
+				await localDb.query(`
+					INSERT INTO boards (id, name, parent_id, depth, nodes, connections, drawings, updated_at)
+					VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+					ON CONFLICT (id) DO UPDATE SET
+						name = EXCLUDED.name,
+						parent_id = EXCLUDED.parent_id,
+						depth = EXCLUDED.depth,
+						nodes = EXCLUDED.nodes,
+						connections = EXCLUDED.connections,
+						drawings = EXCLUDED.drawings,
+						updated_at = NOW();
+				`, [
+					snapBoardId,
+					snapName,
+					snapParentId,
+					snapDepth,
+					snapNodes,
+					snapConnections,
+					snapDrawings
+				]);
+				
+				// Queue background write to authoritative Postgres server
+				// PGlite sync extension handles Downstream (Server -> Local) state cleanly, but Upstream changes
+				// must be submitted through standard application API endpoints.
+				fetch(`/api/boards/${snapBoardId}`, {
 					method: 'PUT',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
-						name: globalMetadata.getName(this.boardId),
-						parentId: this.parentId,
-						depth: this.depth,
-						nodes: this.nodes,
-						connections: this.connections,
-						drawings: this.drawings
+						name: snapName,
+						parentId: snapParentId,
+						depth: snapDepth,
+						nodes: JSON.parse(snapNodes),
+						connections: JSON.parse(snapConnections),
+						drawings: JSON.parse(snapDrawings)
 					})
-				});
+				}).catch(e => console.warn('Background sync to upstream server failed (offline mode fallback engaged)', e));
 			}
 		} catch (e) {
-			console.error("Failed to save lattice state to server:", e);
+			console.error("Failed to save local DB state:", e);
 		}
 	}
 
 	forceSave() {
-		this._saveInternal();
+		if (this.saveToStorage && typeof this.saveToStorage.cancel === 'function') {
+			this.saveToStorage.cancel();
+		}
+		this._savePending = this._saveInternal();
+		return this._savePending;
 	}
 
 	saveToStorage = debounce(() => this._saveInternal(), DEBOUNCE_MS);

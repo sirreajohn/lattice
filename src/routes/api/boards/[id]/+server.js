@@ -119,8 +119,8 @@ export async function PUT({ params, request, locals }) {
 /** @param {import('@sveltejs/kit').RequestEvent} event */
 export async function DELETE({ params, locals }) {
 	const { id } = params;
-	if (id === 'default') {
-		return json({ error: "Cannot delete initial home board" }, { status: 400 });
+	if (id === 'default' || id.startsWith('root_')) {
+		return json({ error: "Cannot delete root home boards" }, { status: 400 });
 	}
 
 	await initDb();

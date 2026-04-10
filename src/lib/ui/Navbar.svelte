@@ -7,9 +7,14 @@
 	const DB_MODE = env.PUBLIC_DB_MODE || "local";
 
 	// Derived state to check if we are inside a board or at the root
-	let isNestedBoard = $derived(!!$page.params.id);
 	let boardId = $derived($page.params.id);
 	let user = $derived($page.data.user);
+	let isRootBoard = $derived(
+		boardId === "default" || (boardId && boardId.startsWith("root_")),
+	);
+	let isBoardPage = $derived(!!boardId);
+
+	let dbType = $derived($page.data.dbType);
 
 	let isEditingBoardName = $state(false);
 	let nameInputElement = $state();
@@ -34,6 +39,7 @@
 	}
 </script>
 
+-- Active: 1775799627125@@127.0.0.1@5432
 <header
 	class="absolute top-0 left-0 w-full h-12 border-b border-[var(--color-border)] bg-[var(--color-canvas)]/80 backdrop-blur-md z-50 flex items-center px-4 justify-between select-none"
 >
@@ -59,7 +65,7 @@
 		</a>
 
 		<!-- Path / Breadcrumbs -->
-		{#if isNestedBoard}
+		{#if isBoardPage}
 			{@const backPath =
 				nodesState.parentId && nodesState.parentId !== "default"
 					? "/b/" + nodesState.parentId
@@ -108,14 +114,16 @@
 					</span>
 				{/if}
 
-				<!-- Back to workspace button -->
-				<a
-					href={backPath}
-					onclick={(e) => navigate(e, backPath)}
-					class="ml-2 hover:text-[var(--color-text-primary)] flex items-center gap-1 bg-[var(--color-surface)] border border-[var(--color-border)] px-2 py-0.5 rounded transition-colors text-[10px]"
-				>
-					&larr; Back
-				</a>
+				{#if !isRootBoard}
+					<!-- Back to workspace button -->
+					<a
+						href={backPath}
+						onclick={(e) => navigate(e, backPath)}
+						class="ml-2 hover:text-[var(--color-text-primary)] flex items-center gap-1 bg-[var(--color-surface)] border border-[var(--color-border)] px-2 py-0.5 rounded transition-colors text-[10px]"
+					>
+						&larr; Back
+					</a>
+				{/if}
 			</div>
 		{/if}
 	</div>
@@ -125,34 +133,58 @@
 	>
 		<div
 			class="flex items-center gap-2 px-2 py-1 rounded bg-[var(--color-surface)] border border-[var(--color-border)]"
-			title={DB_MODE === "temp"
+			title={dbType === "temp"
 				? "All changes will be lost on page reload"
-				: "Data is saved locally"}
+				: dbType === "pglite"
+					? "Could not connect to PostgreSQL. Saving to local PGlite (fallthrough mode)."
+					: "Data is saved to central PostgreSQL"}
 		>
-			{#if DB_MODE === "temp"}
+			{#if dbType === "temp"}
 				<div
 					class="w-1.5 h-1.5 rounded-full bg-amber-500/80 shadow-[0_0_4px_rgba(245,158,11,0.8)]"
 				></div>
 				<span class="text-[var(--color-text-secondary)]"
-					>Temp Session (data is not saved)</span
+					>Temp Session</span
+				>
+			{:else if dbType === "pglite"}
+				<div
+					class="w-1.5 h-1.5 rounded-full bg-blue-500/80 shadow-[0_0_4px_rgba(59,130,246,0.8)]"
+				></div>
+				<span class="text-[var(--color-text-secondary)] mr-1"
+					>PGlite Fallback</span
 				>
 			{:else}
 				<div
 					class="w-1.5 h-1.5 rounded-full bg-green-500/80 shadow-[0_0_4px_rgba(34,197,94,0.8)]"
 				></div>
-				<span class="text-[var(--color-text-secondary)]">Local DB</span>
+				<span class="text-[var(--color-text-secondary)] mr-1"
+					>PostgreSQL {dbType}</span
+				>
 			{/if}
 		</div>
 
 		<!-- GitHub Link -->
-		<a 
-			href="https://github.com/sirreajohn/Lattice" 
+		<a
+			href="https://github.com/sirreajohn/Lattice"
 			target="_blank"
 			rel="noopener noreferrer"
 			class="flex items-center gap-2 px-2 py-1 rounded bg-[var(--color-surface)] border border-[var(--color-border)] hover:bg-neutral-800 transition-colors"
 			title="View on GitHub"
 		>
-			<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="12"
+				height="12"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				><path
+					d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"
+				/><path d="M9 18c-4.51 2-5-2-7-2" /></svg
+			>
 			<span>GitHub</span>
 		</a>
 
