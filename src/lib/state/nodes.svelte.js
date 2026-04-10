@@ -49,7 +49,7 @@ export class NodesState {
 	selectedNodeId = $state(null);
 	boardId = '';
 
-	constructor(boardId = 'default') {
+	constructor(boardId = '') {
 		this.boardId = boardId;
 		if (typeof window !== 'undefined') {
 			this.loadFromStorage();
@@ -300,6 +300,13 @@ export class NodesState {
 		const snapDrawings = JSON.stringify($state.snapshot(this.drawings));
 		const snapName = globalMetadata.getName(this.boardId);
 		
+		// Guard: Don't save if board ID is missing, or if it's the default board and it's completely empty.
+		if (!snapBoardId) return;
+		if (snapBoardId === 'default' && this.nodes.length === 0 && this.drawings.length === 0) {
+			console.log(`[SYNC SKIP] Skipping empty default board.`);
+			return;
+		}
+
 		console.log(`[SYNC RUN] Generating payload for board: ${snapBoardId} | Nodes Count: ${this.nodes.length} | Snapshot Size: ${snapNodes.length}`);
 
 		try {
@@ -490,6 +497,7 @@ export class GlobalMetadata {
 	}
 
 	getName(id) {
+		if (id === 'default') return 'Default Board';
 		return this.boardNames[id] || `board_${id.slice(0, 6)}`;
 	}
 }

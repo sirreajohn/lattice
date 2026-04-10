@@ -99,7 +99,7 @@ export async function PUT({ params, request, locals }) {
 				updated_at = EXCLUDED.updated_at
 		`, [
 			id, 
-			payload.name || `board_${id.slice(0,6)}`, 
+			payload.name || (id === 'default' ? 'Default Board' : `board_${id.slice(0, 6)}`), 
 			payload.parentId || null,
 			payload.depth || 0,
 			JSON.stringify(payload.nodes || []), 

@@ -158,7 +158,7 @@
 					class="w-1.5 h-1.5 rounded-full bg-green-500/80 shadow-[0_0_4px_rgba(34,197,94,0.8)]"
 				></div>
 				<span class="text-[var(--color-text-secondary)] mr-1"
-					>PostgreSQL {dbType}</span
+					>PostgreSQL</span
 				>
 			{/if}
 		</div>
