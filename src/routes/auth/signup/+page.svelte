@@ -2,40 +2,119 @@
 	let { form } = $props();
 </script>
 
-<div class="fixed inset-0 min-h-screen flex items-center justify-center bg-[var(--color-canvas)] bg-dot-pattern z-[100]">
-	<div class="w-full max-w-md p-8 rounded-xl bg-[var(--color-surface)]/80 backdrop-blur-xl border border-[var(--color-border)] shadow-2xl">
-		<div class="flex justify-center mb-6">
-			<div class="w-10 h-10 bg-[var(--color-text-primary)] rounded-md flex items-center justify-center">
-				<span class="text-[var(--color-canvas)] font-bold font-mono text-xl">L</span>
+<div
+	class="fixed inset-0 min-h-screen flex items-center justify-center bg-canvas bg-dot-pattern z-100"
+>
+	<div
+		class="w-full max-w-sm bg-surface/95 backdrop-blur-md border border-border border-t-accent rounded-none shadow-[0_20px_60px_rgba(0,0,0,0.8)] overflow-hidden animate-in fade-in zoom-in-95 duration-300"
+	>
+		<!-- Industrial Header Decor -->
+		<div class="h-1 w-full bg-accent/20"></div>
+
+		<div class="p-8">
+			<div class="flex items-center gap-3 mb-8">
+				<div
+					class="w-10 h-10 bg-accent text-canvas flex items-center justify-center font-bold font-mono text-xl shadow-[0_0_15px_rgba(0,0,0,0.3)]"
+				>
+					L
+				</div>
+				<div class="flex flex-col">
+					<span
+						class="text-[9px] tracking-[0.3em] font-bold text-accent"
+						>SYS_REG_v2</span
+					>
+					<span
+						class="text-xs font-mono text-text-secondary tracking-widest uppercase"
+						>Lattice_New_User</span
+					>
+				</div>
+			</div>
+
+			<div class="mb-8">
+				<h1
+					class="text-lg font-mono font-bold text-text-primary uppercase tracking-tight"
+				>
+					Register User
+				</h1>
+				<div class="h-px w-12 bg-accent mt-1"></div>
+			</div>
+
+			{#if form?.error}
+				<div
+					class="mb-6 p-3 bg-red-500/10 border-l-2 border-red-500 text-red-500 text-[10px] font-mono tracking-tight animate-in fade-in slide-in-from-left-2"
+				>
+					<span class="font-bold mr-1">ERR_REG:</span>
+					{form.error}
+				</div>
+			{/if}
+
+			<form method="POST" class="flex flex-col gap-5">
+				<div class="flex flex-col gap-1.5">
+					<label
+						for="username"
+						class="text-[10px] font-mono text-text-secondary uppercase tracking-[0.2em] font-bold"
+						>Username_</label
+					>
+					<input
+						id="username"
+						name="username"
+						type="text"
+						required
+						placeholder="NEW_UID"
+						class="bg-canvas/50 border border-border text-text-primary rounded-none px-3 py-2.5 font-mono text-xs focus:outline-none focus:border-accent transition-all w-full placeholder:opacity-20 translate-z-0"
+					/>
+				</div>
+
+				<div class="flex flex-col gap-1.5">
+					<label
+						for="password"
+						class="text-[10px] font-mono text-text-secondary uppercase tracking-[0.2em] font-bold"
+						>Password_</label
+					>
+					<input
+						id="password"
+						name="password"
+						type="password"
+						required
+						placeholder="******"
+						class="bg-canvas/50 border border-border text-text-primary rounded-none px-3 py-2.5 font-mono text-xs focus:outline-none focus:border-accent transition-all w-full placeholder:opacity-20 translate-z-0"
+					/>
+				</div>
+
+				<button
+					type="submit"
+					class="mt-4 bg-accent text-canvas font-bold font-mono text-[10px] uppercase tracking-[0.3em] py-3.5 rounded-none hover:bg-accent/90 shadow-[0_0_20px_rgba(0,0,0,0.1)] transition-all w-full cursor-pointer flex items-center justify-center gap-2 group"
+				>
+					Initialize_User
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="3"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						class="group-hover:translate-x-1 transition-transform"
+						><path d="M12 5v14" /><path d="m19 12-7 7-7-7" /></svg
+					>
+				</button>
+			</form>
+
+			<div
+				class="mt-8 pt-6 border-t border-border/30 flex justify-center"
+			>
+				<p
+					class="text-[10px] font-mono text-text-secondary tracking-wider"
+				>
+					Link Existing? <a
+						href="/auth/login"
+						class="text-accent font-bold hover:underline ml-1"
+						>LOGIN_SESSION</a
+					>
+				</p>
 			</div>
 		</div>
-		<h1 class="text-2xl font-mono text-center font-bold text-[var(--color-text-primary)] mb-2">Create Account</h1>
-		<p class="text-center text-xs font-mono text-[var(--color-text-secondary)] mb-8 uppercase tracking-widest">Join your local Lattice</p>
-		
-		{#if form?.error}
-			<div class="mb-4 p-3 rounded bg-red-500/20 border border-red-500/50 text-red-500 text-sm font-mono text-center">
-				{form.error}
-			</div>
-		{/if}
-
-		<form method="POST" class="flex flex-col gap-4">
-			<div class="flex flex-col gap-1">
-				<label class="text-xs font-mono text-[var(--color-text-secondary)] uppercase tracking-wider">Username</label>
-				<input name="username" type="text" required class="bg-black/20 border border-[var(--color-border)] text-[var(--color-text-primary)] rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors w-full" />
-			</div>
-			
-			<div class="flex flex-col gap-1">
-				<label class="text-xs font-mono text-[var(--color-text-secondary)] uppercase tracking-wider">Password</label>
-				<input name="password" type="password" required class="bg-black/20 border border-[var(--color-border)] text-[var(--color-text-primary)] rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors w-full" />
-			</div>
-
-			<button type="submit" class="mt-4 bg-[var(--color-text-primary)] text-[var(--color-canvas)] font-bold font-mono text-sm uppercase tracking-widest py-3 rounded hover:opacity-90 transition-opacity w-full cursor-pointer">
-				Sign Up
-			</button>
-		</form>
-
-		<p class="mt-6 text-center text-xs font-mono text-[var(--color-text-secondary)]">
-			Already have an account? <a href="/auth/login" class="text-[var(--color-accent)] hover:underline">Log In</a>
-		</p>
 	</div>
 </div>

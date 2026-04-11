@@ -20,7 +20,9 @@
 body {
   background-color: var(--color-canvas);
   color: var(--color-text-primary);
-  /* The hidden scrollbar utilities can be kept */
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Custom ambient Markdown styles */
