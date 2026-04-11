@@ -39,9 +39,8 @@
 	}
 </script>
 
--- Active: 1775799627125@@127.0.0.1@5432
 <header
-	class="absolute top-0 left-0 w-full h-12 border-b border-[var(--color-border)] bg-[var(--color-canvas)]/80 backdrop-blur-md z-50 flex items-center px-4 justify-between select-none"
+	class="absolute top-0 left-0 w-full h-12 border-b-2 border-border bg-surface/90 backdrop-blur-md shadow-[0_4px_20px_rgba(0,0,0,0.6)] z-50 flex items-center px-6 justify-between select-none"
 >
 	<div class="flex items-center gap-4">
 		<!-- Logo -->
@@ -50,17 +49,10 @@
 			onclick={(e) => navigate(e, "/")}
 			class="flex items-center gap-2 hover:opacity-80 transition-opacity"
 		>
-			<div
-				class="w-5 h-5 bg-[var(--color-text-primary)] rounded-sm flex items-center justify-center"
-			>
-				<span
-					class="text-[var(--color-canvas)] font-bold text-[10px] font-mono"
-					>L</span
-				>
-			</div>
+			<div class="w-2 h-2 bg-accent animate-pulse shadow-[0_0_8px_theme(colors.accent)]"></div>
 			<span
-				class="font-mono font-bold text-xs tracking-widest uppercase text-[var(--color-text-primary)]"
-				>Lattice</span
+				class="font-bold text-[10px] tracking-[0.2em] uppercase text-text-primary relative top-px"
+				>SYS_LATTICE_</span
 			>
 		</a>
 
@@ -71,7 +63,7 @@
 					? "/b/" + nodesState.parentId
 					: "/"}
 			<div
-				class="flex items-center gap-2 text-[var(--color-text-secondary)] font-mono text-xs overflow-x-auto no-scrollbar max-w-[50vw]"
+				class="flex items-center gap-2 text-text-secondary text-xs overflow-x-auto no-scrollbar max-w-[50vw]"
 			>
 				<span class="opacity-50">/</span>
 
@@ -79,7 +71,7 @@
 					<a
 						href="/b/{ancestor.id}"
 						onclick={(e) => navigate(e, `/b/${ancestor.id}`)}
-						class="truncate max-w-[150px] hover:text-[var(--color-text-primary)] hover:underline transition-colors"
+						class="truncate max-w-[150px] hover:text-text-primary hover:underline transition-colors"
 					>
 						{globalMetadata.getName(ancestor.id)}
 					</a>
@@ -89,7 +81,7 @@
 				{#if isEditingBoardName}
 					<input
 						bind:this={nameInputElement}
-						class="bg-transparent text-[var(--color-text-primary)] focus:outline-none w-32 font-bold border-b border-[var(--color-accent)]"
+						class="bg-accent/10 text-accent focus:outline-none w-32 font-bold px-2 py-0.5 border-b-2 border-accent shadow-[0_0_10px_var(--color-accent)]"
 						value={globalMetadata
 							.getName(boardId)
 							.startsWith("board_")
@@ -129,7 +121,7 @@
 	</div>
 
 	<div
-		class="flex items-center gap-4 text-xs font-mono text-[var(--color-text-secondary)]"
+		class="flex items-center gap-4 text-xs text-text-secondary"
 	>
 		<div
 			class="flex items-center gap-2 px-2 py-1 rounded bg-[var(--color-surface)] border border-[var(--color-border)]"
@@ -157,7 +149,7 @@
 				<div
 					class="w-1.5 h-1.5 rounded-full bg-green-500/80 shadow-[0_0_4px_rgba(34,197,94,0.8)]"
 				></div>
-				<span class="text-[var(--color-text-secondary)] mr-1"
+				<span class="text-text-secondary mr-1"
 					>PostgreSQL</span
 				>
 			{/if}
@@ -168,7 +160,7 @@
 			href="https://github.com/sirreajohn/Lattice"
 			target="_blank"
 			rel="noopener noreferrer"
-			class="flex items-center gap-2 px-2 py-1 rounded bg-[var(--color-surface)] border border-[var(--color-border)] hover:bg-neutral-800 transition-colors"
+			class="flex items-center gap-2 px-2 py-1 rounded bg-surface border border-border hover:bg-neutral-800 transition-colors"
 			title="View on GitHub"
 		>
 			<svg
@@ -190,39 +182,48 @@
 
 		{#if user && DB_MODE !== "temp"}
 			<div class="relative">
-				<!-- Circular User Profile -->
+				<!-- Industrial User Profile Trigger -->
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div
-					class="w-7 h-7 rounded-full bg-[var(--color-accent)] text-[var(--color-canvas)] flex items-center justify-center font-bold text-xs cursor-pointer hover:opacity-80 transition-opacity"
+				<button
+					class="w-7 h-7 rounded-none bg-accent text-canvas flex items-center justify-center font-bold text-xs cursor-pointer hover:bg-accent/80 transition-colors border-2 border-accent shadow-[0_0_10px_theme(colors.accent/0.3)]"
 					onclick={() => (showUserMenu = !showUserMenu)}
+					aria-label="User Menu"
 				>
 					{user.username.charAt(0).toUpperCase()}
-				</div>
+				</button>
 
 				<!-- Pillbox Dropdown -->
 				{#if showUserMenu}
+					<!-- Click-out interception -->
 					<div
-						class="absolute right-0 top-10 w-48 bg-[var(--color-surface)]/90 backdrop-blur-md border border-[var(--color-border)] rounded-lg shadow-xl p-4 z-[100] flex flex-col gap-3"
+						class="fixed inset-0 z-40"
+						onpointerdown={() => (showUserMenu = false)}
+						role="presentation"
+					></div>
+
+					<div
+						class="absolute right-0 top-10 w-48 bg-surface/95 backdrop-blur-md border-2 border-border border-t-accent rounded-none shadow-[0_10px_30px_rgba(0,0,0,0.8)] p-4 z-[100] flex flex-col gap-3 animate-in fade-in slide-in-from-top-2"
 					>
 						<div class="flex flex-col gap-1">
 							<span
-								class="text-[9px] uppercase tracking-widest opacity-50"
-								>Signed in as</span
+								class="text-[8px] tracking-[0.2em] opacity-40 uppercase font-bold"
+								>AUTH_SESSION_ACTIVE</span
 							>
 							<span
-								class="text-[var(--color-text-primary)] font-bold truncate text-sm"
+								class="text-text-primary font-bold truncate text-[11px] font-mono"
 								>{user.username}</span
 							>
 						</div>
 						<div
-							class="h-px w-full bg-[var(--color-border)] my-1"
+							class="h-px w-full bg-border/50 my-1"
 						></div>
 						<form method="POST" action="/auth/logout">
 							<button
 								type="submit"
-								class="w-full text-left text-red-500 hover:text-red-400 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-2"
+								class="w-full text-left text-red-500 hover:text-red-400 text-[10px] font-bold tracking-[0.2em] transition-colors cursor-pointer flex items-center justify-between group"
 							>
+								<span>LOGOUT_</span>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									width="12"
@@ -233,6 +234,7 @@
 									stroke-width="3"
 									stroke-linecap="round"
 									stroke-linejoin="round"
+									class="group-hover:translate-x-0.5 transition-transform"
 									><path
 										d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
 									></path><polyline points="16 17 21 12 16 7"
@@ -243,7 +245,6 @@
 										y2="12"
 									></line></svg
 								>
-								Log Out
 							</button>
 						</form>
 					</div>
