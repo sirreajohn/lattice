@@ -44,7 +44,7 @@
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div 
-			class="w-full flex-1 p-4 text-sm font-sans markdown-body cursor-text select-text overflow-y-auto text-wrap break-words text-[var(--color-text-primary)] relative group"
+			class="w-full flex-1 p-4 text-sm markdown-body cursor-text select-text overflow-y-auto text-wrap break-words text-text-primary relative group"
 			onclick={startEditing}
 		>
 			<div class="opacity-0 group-hover:opacity-10 absolute top-2 right-4 text-[10px] uppercase font-mono tracking-widest pointer-events-none transition-opacity">Edit</div>

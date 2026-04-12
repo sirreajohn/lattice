@@ -11,6 +11,7 @@
 			nodesState.boardId = boardId;
 			nodesState.nodes.length = 0;
 			nodesState.connections.length = 0;
+			nodesState.drawings = [];
 			nodesState.selectedNodeId = null;
 
 			const parentId = $page.url.searchParams.get("parent") || null;

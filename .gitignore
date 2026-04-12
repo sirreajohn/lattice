@@ -8,8 +8,9 @@ node_modules
 .wrangler
 /.svelte-kit
 /build
-data/
+/data/
 robots.txt
+docker-compose.override.yml
 
 # OS
 .DS_Store
