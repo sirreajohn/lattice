@@ -231,7 +231,7 @@
     </div>
 
     <!-- Content Area -->
-    <div class="flex-1 overflow-hidden relative nodrag pointer-events-auto bg-white" onwheel={(e) => e.stopPropagation()}>
+    <div class="flex-1 overflow-hidden relative nodrag pointer-events-auto bg-white select-text" onwheel={(e) => e.stopPropagation()}>
         {#if nodeType === 'pdf'}
             <iframe 
                 src={node.data?.content || ''} 

@@ -3,13 +3,18 @@
 
 	let { node } = $props();
 
-	let isEditing = $state(!node.data.url);
+	let isEditing = $state(false);
+	$effect.pre(() => {
+		if (!node.data.url) isEditing = true;
+	});
 	let inputElement = $state();
 
+	/** @param {any} e */
 	function handleInput(e) {
 		nodesState.updateNodeData(node.id, { url: e.target.value });
 	}
 
+	/** @param {string} url */
 	function parseEmbedUrl(url) {
 		if (!url) return '';
 		
@@ -41,6 +46,7 @@
 
 	let embedUrl = $derived(parseEmbedUrl(node.data.url));
 
+	/** @param {any} e */
 	function startEditing(e) {
 		e.stopPropagation();
 		isEditing = true;

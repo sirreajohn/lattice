@@ -8,10 +8,26 @@
 
 	let { children } = $props();
 	/** @type {HTMLDivElement} */
+	// @ts-ignore
 	let canvasElement = $state();
+	/** @type {string | null} */
 	let activeDrawingId = $state(null);
 
+	/** @param {PointerEvent} e */
 	function handlePointerDown(e) {
+		// 1. Allow interacting with inputs, textareas, or things that are contenteditable.
+		const target = /** @type {HTMLElement} */ (e.target);
+		if (
+			target && (
+				["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(
+					target.tagName,
+				) ||
+				target.closest("[contenteditable]")
+			)
+		) {
+			return;
+		}
+
 		const isLeftClick = e.button === 0;
 
 		// Drawing logic
@@ -28,6 +44,7 @@
 			};
 			nodesState.addDrawing(newDrawing);
 
+			/** @param {PointerEvent} ev */
 			function handlePencilMove(ev) {
 				const pt = canvasState.screenToCanvas(ev.clientX, ev.clientY);
 				const d = nodesState.drawings.find(
@@ -56,7 +73,15 @@
 			return;
 		}
 
-		nodesState.selectedNodeId = null;
+		// 2. If clicking on something that bubbled here (not caught by nodes)
+		// and it's specifically the canvas background, deselect and blur.
+		if (e.target === canvasElement) {
+			const activeEl = /** @type {HTMLElement} */ (document.activeElement);
+			if (activeEl && typeof activeEl.blur === 'function') {
+				activeEl.blur();
+			}
+			nodesState.selectedNodeId = null;
+		}
 
 		if (e.button === 0 || e.button === 1 || e.altKey) {
 			e.preventDefault();
@@ -65,6 +90,7 @@
 			const initialCanvasX = canvasState.x;
 			const initialCanvasY = canvasState.y;
 
+			/** @param {PointerEvent} ev */
 			function handlePointerMove(ev) {
 				canvasState.x = initialCanvasX + (ev.clientX - startX);
 				canvasState.y = initialCanvasY + (ev.clientY - startY);
@@ -80,6 +106,7 @@
 		}
 	}
 
+	/** @param {WheelEvent} e */
 	function handleWheel(e) {
 		if (!e.ctrlKey && !e.metaKey) {
 			return;
@@ -105,8 +132,15 @@
 		canvasState.scale = newScale;
 	}
 
+	/** 
+	 * @param {File} file 
+	 * @param {number} x 
+	 * @param {number} y 
+	 * @param {boolean} isScreenPos 
+	 */
 	function processImageFile(file, x, y, isScreenPos) {
 		const reader = new FileReader();
+		/** @param {any} event */
 		reader.onload = (event) => {
 			const img = new Image();
 			img.onload = () => {
@@ -165,6 +199,7 @@
 		reader.readAsDataURL(file);
 	}
 
+	/** @param {DragEvent} e */
 	function handleDrop(e) {
 		e.preventDefault();
 		if (e.dataTransfer && e.dataTransfer.files) {
@@ -201,6 +236,7 @@
 		}
 	}
 
+	/** @param {ClipboardEvent} e */
 	function handlePaste(e) {
 		if (
 			document.activeElement &&
@@ -236,6 +272,8 @@
 	ondragover={(e) => e.preventDefault()}
 	ondrop={handleDrop}
 	class="w-full h-screen relative overflow-hidden text-[var(--color-text-primary)] bg-[var(--color-canvas)] select-none touch-none"
+	role="application"
+	aria-label="Infinite Canvas"
 	style="
 		background-image: radial-gradient(var(--color-border) 1.5px, transparent 1.5px);
 		background-position: {canvasState.x}px {canvasState.y}px;
@@ -247,7 +285,7 @@
 	"
 >
 	<div
-		class="absolute top-0 left-0 w-0 h-0 overflow-visible origin-top-left"
+		class="absolute top-0 left-0 w-0 h-0 overflow-visible origin-top-left canvas-content"
 		style="transform: translate({canvasState.x}px, {canvasState.y}px) scale({canvasState.scale})"
 	>
 		<CanvasDrawings />

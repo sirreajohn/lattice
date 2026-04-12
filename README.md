@@ -61,12 +61,12 @@ docker compose up -d --build
 
 ## 📝 Feature list
 - [X] Add image support
-- [ ] Add file/link support
+- [X] Add file/link support
 - [X] Freeform draw tools
-- [ ] Change card text from md to rich text
-- [ ] Add keyboard shortcuts for tools
+- [-] Change card text from md to rich text (descoped, cause document card covers this)
+- [X] Add keyboard shortcuts for tools
 - [ ] overlay card for grouping cards with a title.
-- [ ] document card to render in full html/md
+- [X] document card to render in full html/md
 - [ ] kanban board????
 - [ ] imports and exports of data to local.
 - [ ] maybe usefull AI features, like semantic vectors to find similar cards or cluster cards of similar topics.

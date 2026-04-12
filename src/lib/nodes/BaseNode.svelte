@@ -218,6 +218,31 @@
 	let isBottomTarget = $derived(nodesState.draftConnection?.targetNodeId === node.id && nodesState.draftConnection?.targetPort === 'bottom');
 	let isLeftTarget = $derived(nodesState.draftConnection?.targetNodeId === node.id && nodesState.draftConnection?.targetPort === 'left');
 	let isRightTarget = $derived(nodesState.draftConnection?.targetNodeId === node.id && nodesState.draftConnection?.targetPort === 'right');
+
+	let parentNode = $derived(node.parentId ? nodesState.nodes.find(n => n.id === node.parentId) : null);
+
+	// Sync absolute canvas position for nested nodes so connection lines can track them
+	$effect(() => {
+		if (isNested && baseElement && parentNode) {
+			// Access parent coordinates to trigger re-calculation when deck moves
+			const _px = parentNode.x;
+			const _py = parentNode.y;
+
+			const canvasDiv = document.querySelector('.canvas-content');
+			if (canvasDiv) {
+				const rect = baseElement.getBoundingClientRect();
+				const cRect = canvasDiv.getBoundingClientRect();
+				const newX = (rect.left - cRect.left) / canvasState.scale;
+				const newY = (rect.top - cRect.top) / canvasState.scale;
+				
+				// Only update if changed by more than a sub-pixel to avoid chatter
+				if (Math.abs(node.x - newX) > 0.01 || Math.abs(node.y - newY) > 0.01) {
+					node.x = newX;
+					node.y = newY;
+				}
+			}
+		}
+	});
 </script>
 
 <!-- svelte-ignore a11y_interactive_supports_focus -->
@@ -226,7 +251,7 @@
 	bind:clientWidth={node.actualWidth}
 	bind:clientHeight={node.actualHeight}
 	data-node-id={node.id}
-	class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md shadow-lg shadow-black/50 transition-shadow outline-none flex flex-col overflow-hidden {nodesState.selectedNodeId === node.id ? 'ring-1 ring-[var(--color-accent)] z-20' : 'z-10'} {isNested ? 'relative' : 'absolute'}"
+	class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md shadow-lg shadow-black/50 transition-shadow outline-none flex flex-col overflow-hidden select-text {nodesState.selectedNodeId === node.id ? 'ring-1 ring-[var(--color-accent)] z-20' : 'z-10'} {isNested ? 'relative' : 'absolute'}"
 	style="
 		{isNested ? '' : `transform: translate(${node.x}px, ${node.y}px);`} 
 		width: {isNested ? '100%' : node.width + 'px'}; 

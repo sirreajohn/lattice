@@ -1,4 +1,5 @@
 import { env } from '$env/dynamic/public';
+import { canvasState } from './canvas.svelte.js';
 
 const DEBOUNCE_MS = parseInt(env.PUBLIC_DB_SAVE_DELAY_MS || '5000', 10);
 const MAX_CARDS = parseInt(env.PUBLIC_MAX_CARDS_PER_BOARD || '500', 10);
@@ -264,6 +265,78 @@ export class NodesState {
 			}
 		}
 		return path;
+	}
+	getCenter() {
+		if (typeof window === 'undefined') return { x: 0, y: 0 };
+		const screenCenter = {
+			x: window.innerWidth / 2,
+			y: window.innerHeight / 2,
+		};
+		return canvasState.screenToCanvas(screenCenter.x, screenCenter.y);
+	}
+
+	addNote() {
+		const center = this.getCenter();
+		this.addNode("note", center.x - 125, center.y - 75, { text: "" });
+	}
+
+	addBoard() {
+		const center = this.getCenter();
+		this.addNode("board", center.x - 125, center.y - 75, { title: "" });
+	}
+
+	addColumn() {
+		const center = this.getCenter();
+		this.addNode("column", center.x - 125, center.y - 75, { title: "" });
+	}
+
+	addImage() {
+		const center = this.getCenter();
+		const id = this.addNode("image", center.x - 125, center.y - 125, { src: "", alt: "" });
+		const node = this.nodes.find((n) => n.id === id);
+		if (node) {
+			node.width = 250;
+			node.height = 250;
+			this.saveToStorage();
+		}
+	}
+
+	addVideo() {
+		const center = this.getCenter();
+		const id = this.addNode("video", center.x - 160, center.y - 90, { url: "" });
+		const node = this.nodes.find((n) => n.id === id);
+		if (node) {
+			node.width = 320;
+			node.height = 180;
+			this.saveToStorage();
+		}
+	}
+
+	addDocs() {
+		const center = this.getCenter();
+		const id = this.addNode("docs", center.x - 250, center.y - 300, { type: "html", content: "" });
+		const node = this.nodes.find((n) => n.id === id);
+		if (node) {
+			node.width = 500;
+			node.height = 600;
+			this.saveToStorage();
+		}
+	}
+
+	addSpreadsheet() {
+		const center = this.getCenter();
+		const emptySheet = {
+			sheets: { Sheet1: Array.from({ length: 10 }, () => Array(6).fill("")) },
+			sheetNames: ["Sheet1"],
+			activeSheet: 0,
+		};
+		const id = this.addNode("docs", center.x - 275, center.y - 200, { type: "spreadsheet", content: emptySheet });
+		const node = this.nodes.find((n) => n.id === id);
+		if (node) {
+			node.width = 550;
+			node.height = 400;
+			this.saveToStorage();
+		}
 	}
 }
 

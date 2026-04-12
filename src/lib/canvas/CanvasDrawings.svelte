@@ -61,6 +61,7 @@
 				stroke-linecap="round"
 				stroke-linejoin="round"
 				class="cursor-crosshair"
+				role="presentation"
 				onpointerenter={(e) => handlePointerEnter(e, drawing.id)}
 				onpointerdown={(e) => handlePointerDown(e, drawing.id)}
 			/>

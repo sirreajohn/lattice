@@ -11,3 +11,11 @@ services:
       - ./data:/app/data
     environment:
       - NODE_ENV=production
+      - PROTOCOL_HEADER=x-forwarded-proto
+      - HOST_HEADER=x-forwarded-host
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5173/auth/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s

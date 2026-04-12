@@ -2,8 +2,11 @@
 	import { themeState, PRESETS } from "$lib/state/theme.svelte.js";
 	import { nodesState } from "$lib/state/nodes.svelte.js";
 	import { canvasState } from "$lib/state/canvas.svelte.js";
+	import { shortcutsState } from "$lib/state/shortcuts.svelte.js";
 
 	let activeTab = $state("customization");
+	/** @type {string | null} */
+	let recordingAction = $state(null);
 	/** @type {Array<any>} */
 	let userBoards = $state([]);
 	let loadingBoards = $state(false);
@@ -22,7 +25,7 @@
 				const data = await res.json();
 				// Filter out 'default' board since it's the root canvas, not a dangling one
 				userBoards = (data.boards || []).filter(
-					(b) => b.id !== "default",
+					(/** @type {any} */ b) => b.id !== "default",
 				);
 			}
 		} catch (e) {
@@ -31,7 +34,7 @@
 			loadingBoards = false;
 		}
 	}
-
+	
 	/** @param {any} board */
 	function reinsertBoard(board) {
 		const screenCenter = {
@@ -82,15 +85,59 @@
 		{ key: "lines", label: "Connection Arrows" },
 	];
 
+	/** 
+	 * @param {string} key 
+	 * @param {any} event 
+	 */
 	function handleColorChange(key, event) {
 		themeState.setColor(key, event.target.value);
 	}
 
+	/** @param {any} event */
 	function handlePresetChange(event) {
 		if (event.target.value !== "custom") {
 			themeState.setPreset(event.target.value);
 		}
 	}
+
+	/** @param {string} action */
+	function startRecording(action) {
+		recordingAction = action;
+		/** @param {KeyboardEvent} e */
+		const listener = (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			if (e.key !== 'Escape') {
+				shortcutsState.setBinding(action, e.key);
+			}
+			recordingAction = null;
+			window.removeEventListener('keydown', listener, true);
+		};
+		window.addEventListener('keydown', listener, true);
+	}
+
+	const shortcutCategories = [
+		{
+			title: "Tools",
+			items: [
+				{ action: "tool-pointer", label: "Select Tool" },
+				{ action: "tool-pencil", label: "Draw Tool" },
+				{ action: "tool-eraser", label: "Eraser Tool" },
+			]
+		},
+		{
+			title: "Cards & Boards",
+			items: [
+				{ action: "add-note", label: "New Note" },
+				{ action: "add-board", label: "New Sub-Board" },
+				{ action: "add-column", label: "New Column/Deck" },
+				{ action: "add-image", label: "New Image" },
+				{ action: "add-doc", label: "New Document" },
+				{ action: "add-sheet", label: "New Spreadsheet" },
+				{ action: "add-video", label: "New Video" },
+			]
+		}
+	];
 </script>
 
 {#if themeState.isOpen}
@@ -124,6 +171,15 @@
 				</button>
 				<button
 					class="w-full text-left px-3 py-2 rounded-md font-medium text-sm transition-colors mt-1 {activeTab ===
+					'shortcuts'
+						? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
+						: 'text-[var(--color-text-primary)] hover:bg-neutral-800'}"
+					onclick={() => (activeTab = "shortcuts")}
+				>
+					Keyboard Shortcuts
+				</button>
+				<button
+					class="w-full text-left px-3 py-2 rounded-md font-medium text-sm transition-colors mt-1 {activeTab ===
 					'boards'
 						? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
 						: 'text-[var(--color-text-primary)] hover:bg-neutral-800'}"
@@ -139,6 +195,7 @@
 					<button
 						class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-neutral-800 rounded transition-colors"
 						onclick={() => (themeState.isOpen = false)}
+						aria-label="Close"
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -227,12 +284,54 @@
 						</section>
 					</div>
 				</div>
+			{:else if activeTab === "shortcuts"}
+				<!-- Shortcuts Area -->
+				<div class="flex-1 overflow-y-auto p-8 relative">
+					<button
+						class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-neutral-800 rounded transition-colors"
+						onclick={() => (themeState.isOpen = false)}
+						aria-label="Close"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+					</button>
+
+					<h2 class="text-2xl font-bold text-[var(--color-text-primary)] mb-4">Keyboard Shortcuts</h2>
+					<p class="text-sm text-[var(--color-text-secondary)] mb-8">Click a shortcut to change it. Avoid common browser shortcuts like Cmd+T or Cmd+R.</p>
+
+					<div class="space-y-8">
+						{#each shortcutCategories as category}
+							<section>
+								<h3 class="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-wider mb-4 pb-2 border-b border-[var(--color-border)]">
+									{category.title}
+								</h3>
+								<div class="space-y-2">
+									{#each category.items as { action, label }}
+										<div class="flex items-center justify-between bg-[var(--color-canvas)] p-3 rounded-md border border-[var(--color-border)] transition-colors hover:border-[var(--color-accent)]/50">
+											<span class="text-sm font-medium text-[var(--color-text-primary)]">{label}</span>
+											<button 
+												onclick={() => startRecording(action)}
+												class="px-3 py-1.5 min-w-[60px] rounded border {recordingAction === action ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-white animate-pulse' : 'bg-black/40 border-[var(--color-border)] text-[var(--color-accent)] font-mono'} transition-all text-xs flex items-center justify-center"
+											>
+												{#if recordingAction === action}
+													Record...
+												{:else}
+													{shortcutsState.getLabel(action) || 'None'}
+												{/if}
+											</button>
+										</div>
+									{/each}
+								</div>
+							</section>
+						{/each}
+					</div>
+				</div>
 			{:else if activeTab === "boards"}
 				<!-- Boards Area -->
 				<div class="flex-1 overflow-y-auto p-8 relative">
 					<button
 						class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-neutral-800 rounded transition-colors"
 						onclick={() => (themeState.isOpen = false)}
+						aria-label="Close"
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"

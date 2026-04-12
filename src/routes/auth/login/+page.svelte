@@ -20,13 +20,13 @@
 
 		<form method="POST" class="flex flex-col gap-4">
 			<div class="flex flex-col gap-1">
-				<label class="text-xs font-mono text-[var(--color-text-secondary)] uppercase tracking-wider">Username</label>
-				<input name="username" type="text" required class="bg-black/20 border border-[var(--color-border)] text-[var(--color-text-primary)] rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors w-full" />
+				<label for="username" class="text-xs font-mono text-[var(--color-text-secondary)] uppercase tracking-wider">Username</label>
+				<input id="username" name="username" type="text" required class="bg-black/20 border border-[var(--color-border)] text-[var(--color-text-primary)] rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors w-full" />
 			</div>
 			
 			<div class="flex flex-col gap-1">
-				<label class="text-xs font-mono text-[var(--color-text-secondary)] uppercase tracking-wider">Password</label>
-				<input name="password" type="password" required class="bg-black/20 border border-[var(--color-border)] text-[var(--color-text-primary)] rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors w-full" />
+				<label for="password" class="text-xs font-mono text-[var(--color-text-secondary)] uppercase tracking-wider">Password</label>
+				<input id="password" name="password" type="password" required class="bg-black/20 border border-[var(--color-border)] text-[var(--color-text-primary)] rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors w-full" />
 			</div>
 
 			<button type="submit" class="mt-4 bg-[var(--color-text-primary)] text-[var(--color-canvas)] font-bold font-mono text-sm uppercase tracking-widest py-3 rounded hover:opacity-90 transition-opacity w-full cursor-pointer">
