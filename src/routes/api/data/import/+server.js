@@ -33,10 +33,16 @@ export async function POST({ request, locals }) {
 
 		for (const board of payload.boards) {
 			try {
-				// Skip root boards from other users — they'll get new root IDs anyway
-				if (board.id.startsWith('root_') && locals.user && board.id !== `root_${locals.user.id}`) {
-					// Remap old root to the current user's root
+				// Skip root boards from other users or temp sessions — they'll get merged/remapped to the current user's root
+				const isRoot = board.id.startsWith('root_') || board.id === 'default';
+				if (isRoot && locals.user && board.id !== `root_${locals.user.id}`) {
 					board.id = `root_${locals.user.id}`;
+				}
+
+				// Also remap parent_id if it was a generic/old root
+				const isParentRoot = board.parent_id?.startsWith('root_') || board.parent_id === 'default';
+				if (isParentRoot && locals.user && board.parent_id !== `root_${locals.user.id}`) {
+					board.parent_id = `root_${locals.user.id}`;
 				}
 
 				await db.query(`
