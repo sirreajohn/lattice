@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import zlib from 'node:zlib';
 import { db, initDb } from '$lib/server/db.js';
 import { env } from '$env/dynamic/public';
 
@@ -13,13 +14,12 @@ export async function POST({ request, locals }) {
 	try {
 		const arrayBuffer = await request.arrayBuffer();
 		
-		// Decompress gzip
-		const ds = new DecompressionStream('gzip');
-		const writer = ds.writable.getWriter();
-		writer.write(new Uint8Array(arrayBuffer));
-		writer.close();
-
-		const decompressed = await new Response(ds.readable).text();
+		// Decompress gzip using bulletproof node:zlib instead of buggy Web Streams
+		// Pass Z_SYNC_FLUSH to gracefully handle truncated browser streams missing the gzip footer
+		const nodeBuffer = Buffer.from(arrayBuffer);
+		const decompressedBuffer = zlib.gunzipSync(nodeBuffer, { finishFlush: zlib.constants.Z_SYNC_FLUSH });
+		const decompressed = decompressedBuffer.toString('utf-8');
+		
 		const payload = JSON.parse(decompressed);
 
 		// Validate payload structure
@@ -28,15 +28,26 @@ export async function POST({ request, locals }) {
 		}
 
 		const userId = locals.user?.id || null;
+		const currentPrimaryRootId = userId ? `root_${userId}` : null;
+		
+		let oldPrimaryRootId = payload.userId ? `root_${payload.userId}` : 'default';
+		if (!payload.boards.some(b => b.id === oldPrimaryRootId)) {
+			const inferredRoot = payload.boards.find(b => !b.parent_id && (b.id === 'default' || b.id.startsWith('root_')));
+			if (inferredRoot) oldPrimaryRootId = inferredRoot.id;
+		}
+
 		let imported = 0;
 		let skipped = 0;
 
 		for (const board of payload.boards) {
 			try {
-				// Skip root boards from other users — they'll get new root IDs anyway
-				if (board.id.startsWith('root_') && locals.user && board.id !== `root_${locals.user.id}`) {
-					// Remap old root to the current user's root
-					board.id = `root_${locals.user.id}`;
+				if (currentPrimaryRootId && oldPrimaryRootId && oldPrimaryRootId !== currentPrimaryRootId) {
+					if (board.id === oldPrimaryRootId) {
+						board.id = currentPrimaryRootId;
+					}
+					if (board.parent_id === oldPrimaryRootId) {
+						board.parent_id = currentPrimaryRootId;
+					}
 				}
 
 				await db.query(`
@@ -71,6 +82,6 @@ export async function POST({ request, locals }) {
 		return json({ success: true, imported, skipped, total: payload.boards.length });
 	} catch (error) {
 		console.error('Import error:', error);
-		return json({ error: 'Failed to import data. Is this a valid .lattice file?' }, { status: 500 });
+		return json({ error: 'Failed to import data: ' + (error instanceof Error ? error.stack : String(error)) }, { status: 500 });
 	}
 }

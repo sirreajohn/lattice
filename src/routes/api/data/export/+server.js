@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import zlib from 'node:zlib';
 import { db, initDb } from '$lib/server/db.js';
 import { env } from '$env/dynamic/public';
 
@@ -36,13 +37,8 @@ export async function GET({ locals }) {
 		const jsonStr = JSON.stringify(payload);
 		const encoded = new TextEncoder().encode(jsonStr);
 
-		// Compress with gzip via Web Streams API
-		const cs = new CompressionStream('gzip');
-		const writer = cs.writable.getWriter();
-		writer.write(encoded);
-		writer.close();
-
-		const compressed = await new Response(cs.readable).arrayBuffer();
+		// Compress with gzip synchronously using node:zlib
+		const compressed = zlib.gzipSync(encoded);
 
 		return new Response(compressed, {
 			headers: {

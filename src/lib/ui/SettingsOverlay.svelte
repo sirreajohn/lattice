@@ -110,8 +110,8 @@
 				// Client-side CompressionStream (supported in modern browsers)
 				const cs = new CompressionStream("gzip");
 				const writer = cs.writable.getWriter();
-				writer.write(encoded);
-				writer.close();
+				await writer.write(encoded);
+				await writer.close();
 
 				const compressed = await new Response(
 					cs.readable,
@@ -187,7 +187,7 @@
 			} else {
 				const res = await fetch("/api/data/import", {
 					method: "POST",
-					body: arrayBuffer,
+					body: file,
 				});
 				const result = await res.json();
 				if (res.ok) {
