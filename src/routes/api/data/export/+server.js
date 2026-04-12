@@ -40,14 +40,41 @@ export async function GET({ locals }) {
 		// Compress with gzip synchronously using node:zlib
 		const compressed = zlib.gzipSync(encoded);
 
+		const d = new Date();
+		const timeStr = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}${String(d.getSeconds()).padStart(2, '0')}`;
+
 		return new Response(compressed, {
 			headers: {
 				'Content-Type': 'application/octet-stream',
-				'Content-Disposition': `attachment; filename="lattice-backup-${new Date().toISOString().slice(0, 10)}.lattice"`,
+				'Content-Disposition': `attachment; filename="Lattice_Backup_${timeStr}.lattice"`,
 			},
 		});
 	} catch (error) {
 		console.error('Export error:', error);
 		return json({ error: 'Failed to export data' }, { status: 500 });
+	}
+}
+
+/** @param {import('@sveltejs/kit').RequestEvent} event */
+export async function POST({ request }) {
+	try {
+		const payload = await request.json();
+		const jsonStr = JSON.stringify(payload);
+		const encoded = new TextEncoder().encode(jsonStr);
+
+		const compressed = zlib.gzipSync(encoded);
+
+		const d = new Date();
+		const timeStr = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}${String(d.getSeconds()).padStart(2, '0')}`;
+
+		return new Response(compressed, {
+			headers: {
+				'Content-Type': 'application/octet-stream',
+				'Content-Disposition': `attachment; filename="Lattice_Backup_${timeStr}.lattice"`,
+			},
+		});
+	} catch (error) {
+		console.error('Export POST error:', error);
+		return json({ error: 'Failed to compress and export data' }, { status: 500 });
 	}
 }

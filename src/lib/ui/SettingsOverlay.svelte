@@ -104,21 +104,16 @@
 			let blob;
 			if (env.PUBLIC_DB_MODE === "temp") {
 				const payload = nodesState.exportState();
-				const jsonStr = JSON.stringify(payload);
-				const encoded = new TextEncoder().encode(jsonStr);
-
-				// Client-side CompressionStream (supported in modern browsers)
-				const cs = new CompressionStream("gzip");
-				const writer = cs.writable.getWriter();
-				await writer.write(encoded);
-				await writer.close();
-
-				const compressed = await new Response(
-					cs.readable,
-				).arrayBuffer();
-				blob = new Blob([compressed], {
-					type: "application/octet-stream",
+				const res = await fetch("/api/data/export", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(payload),
 				});
+				if (!res.ok) {
+					alert("Export compression failed");
+					return;
+				}
+				blob = await res.blob();
 			} else {
 				const res = await fetch("/api/data/export");
 				if (!res.ok) {
@@ -132,7 +127,11 @@
 			const url = URL.createObjectURL(blob);
 			const a = document.createElement("a");
 			a.href = url;
-			a.download = `lattice-backup-${new Date().toISOString().slice(0, 10)}.lattice`;
+			
+			const d = new Date();
+			const timeStr = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}${String(d.getSeconds()).padStart(2, '0')}`;
+			a.download = `Lattice_Backup_${timeStr}.lattice`;
+			
 			a.click();
 			URL.revokeObjectURL(url);
 		} catch (e) {
@@ -167,34 +166,22 @@
 		isImporting = true;
 		importStatus = null;
 		try {
-			const arrayBuffer = await file.arrayBuffer();
-
-			if (env.PUBLIC_DB_MODE === "temp") {
-				// Client-side Decompression
-				const ds = new DecompressionStream("gzip");
-				const writer = ds.writable.getWriter();
-				writer.write(new Uint8Array(arrayBuffer));
-				writer.close();
-
-				const decompressed = await new Response(ds.readable).text();
-				const payload = JSON.parse(decompressed);
-
-				if (nodesState.importState(payload)) {
-					importStatus = `Imported ${payload.boards?.length || 0} board(s) successfully to session.`;
+			const res = await fetch("/api/data/import", {
+				method: "POST",
+				body: file,
+			});
+			const result = await res.json();
+			
+			if (!res.ok) {
+				importStatus = result.error || "Import failed";
+			} else if (env.PUBLIC_DB_MODE === "temp") {
+				if (nodesState.importState(result.payload)) {
+					importStatus = `Imported ${result.payload.boards?.length || 0} board(s) successfully to session.`;
 				} else {
 					importStatus = "Invalid backup file format";
 				}
 			} else {
-				const res = await fetch("/api/data/import", {
-					method: "POST",
-					body: file,
-				});
-				const result = await res.json();
-				if (res.ok) {
-					importStatus = `Imported ${result.imported} board(s) successfully${result.skipped > 0 ? `, ${result.skipped} skipped` : ""}.`;
-				} else {
-					importStatus = result.error || "Import failed";
-				}
+				importStatus = `Imported ${result.imported} board(s) successfully${result.skipped > 0 ? `, ${result.skipped} skipped` : ""}.`;
 			}
 		} catch (err) {
 			console.error("Import error", err);

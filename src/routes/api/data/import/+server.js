@@ -5,10 +5,6 @@ import { env } from '$env/dynamic/public';
 
 /** @param {import('@sveltejs/kit').RequestEvent} event */
 export async function POST({ request, locals }) {
-	if (env.PUBLIC_DB_MODE === 'temp') {
-		return json({ error: 'Import is not available in temp mode' }, { status: 400 });
-	}
-
 	await initDb();
 
 	try {
@@ -25,6 +21,10 @@ export async function POST({ request, locals }) {
 		// Validate payload structure
 		if (!payload.version || !Array.isArray(payload.boards)) {
 			return json({ error: 'Invalid backup file format' }, { status: 400 });
+		}
+
+		if (env.PUBLIC_DB_MODE === 'temp') {
+			return json({ success: true, payload });
 		}
 
 		const userId = locals.user?.id || null;
