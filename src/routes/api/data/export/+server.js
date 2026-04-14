@@ -67,6 +67,6 @@ export async function POST({ request }) {
 		});
 	} catch (error) {
 		console.error('Export POST error:', error);
-		return json({ error: 'Failed to compress and export data' }, { status: 500 });
+		return json({ error: 'Failed to export data' }, { status: 500 });
 	}
 }

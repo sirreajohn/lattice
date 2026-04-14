@@ -4,8 +4,6 @@ import { env } from '$env/dynamic/public';
 
 /** @param {import('@sveltejs/kit').RequestEvent} event */
 export async function POST({ request, locals }) {
-	await initDb();
-
 	try {
 		const payload = await request.json();
 
@@ -17,6 +15,8 @@ export async function POST({ request, locals }) {
 		if (env.PUBLIC_DB_MODE === 'temp') {
 			return json({ success: true, payload });
 		}
+
+		await initDb();
 
 		const userId = locals.user?.id || null;
 		const currentPrimaryRootId = userId ? `root_${userId}` : null;
