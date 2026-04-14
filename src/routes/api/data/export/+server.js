@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import zlib from 'node:zlib';
 import { db, initDb } from '$lib/server/db.js';
 import { env } from '$env/dynamic/public';
 
@@ -34,18 +33,14 @@ export async function GET({ locals }) {
 			})),
 		};
 
-		const jsonStr = JSON.stringify(payload);
-		const encoded = new TextEncoder().encode(jsonStr);
-
-		// Compress with gzip synchronously using node:zlib
-		const compressed = zlib.gzipSync(encoded);
+		const jsonStr = JSON.stringify(payload, null, 2);
 
 		const d = new Date();
 		const timeStr = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}${String(d.getSeconds()).padStart(2, '0')}`;
 
-		return new Response(compressed, {
+		return new Response(jsonStr, {
 			headers: {
-				'Content-Type': 'application/octet-stream',
+				'Content-Type': 'application/json',
 				'Content-Disposition': `attachment; filename="Lattice_Backup_${timeStr}.lattice"`,
 			},
 		});
@@ -59,17 +54,14 @@ export async function GET({ locals }) {
 export async function POST({ request }) {
 	try {
 		const payload = await request.json();
-		const jsonStr = JSON.stringify(payload);
-		const encoded = new TextEncoder().encode(jsonStr);
-
-		const compressed = zlib.gzipSync(encoded);
+		const jsonStr = JSON.stringify(payload, null, 2);
 
 		const d = new Date();
 		const timeStr = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}${String(d.getSeconds()).padStart(2, '0')}`;
 
-		return new Response(compressed, {
+		return new Response(jsonStr, {
 			headers: {
-				'Content-Type': 'application/octet-stream',
+				'Content-Type': 'application/json',
 				'Content-Disposition': `attachment; filename="Lattice_Backup_${timeStr}.lattice"`,
 			},
 		});

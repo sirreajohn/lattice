@@ -110,7 +110,7 @@
 					body: JSON.stringify(payload),
 				});
 				if (!res.ok) {
-					alert("Export compression failed");
+					alert("Export failed");
 					return;
 				}
 				blob = await res.blob();

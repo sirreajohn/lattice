@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import zlib from 'node:zlib';
 import { db, initDb } from '$lib/server/db.js';
 import { env } from '$env/dynamic/public';
 
@@ -8,15 +7,7 @@ export async function POST({ request, locals }) {
 	await initDb();
 
 	try {
-		const arrayBuffer = await request.arrayBuffer();
-		
-		// Decompress gzip using bulletproof node:zlib instead of buggy Web Streams
-		// Pass Z_SYNC_FLUSH to gracefully handle truncated browser streams missing the gzip footer
-		const nodeBuffer = Buffer.from(arrayBuffer);
-		const decompressedBuffer = zlib.gunzipSync(nodeBuffer, { finishFlush: zlib.constants.Z_SYNC_FLUSH });
-		const decompressed = decompressedBuffer.toString('utf-8');
-		
-		const payload = JSON.parse(decompressed);
+		const payload = await request.json();
 
 		// Validate payload structure
 		if (!payload.version || !Array.isArray(payload.boards)) {
