@@ -8,6 +8,7 @@
 	import ImageNode from './ImageNode.svelte';
 	import DocsNode from './DocsNode.svelte';
 	import SheetNode from './SheetNode.svelte';
+	import FrameNode from './FrameNode.svelte';
 
 	let { node } = $props();
 
@@ -42,11 +43,25 @@
 		let startY = e.clientY;
 		let activeInitialX = node.x;
 		let activeInitialY = node.y;
+		let childrenToMove = []; // Geometrically enclosed children 
 
 		function handlePointerMove(ev) {
 			if (!isDragging) {
 				if (Math.abs(ev.clientX - startX) > 3 || Math.abs(ev.clientY - startY) > 3) {
 					isDragging = true;
+
+					// If dragging a frame, cache the visually enclosed children to move them
+					if (node.type === 'frame') {
+						const frameW = node.width;
+						const frameH = node.actualHeight || node.height || 400;
+						childrenToMove = nodesState.nodes.filter(n => 
+							n.id !== node.id && 
+							n.x >= node.x && 
+							n.y >= node.y && 
+							n.x + (n.width || 0) <= node.x + frameW && 
+							n.y + (n.actualHeight || n.height || 0) <= node.y + frameH
+						).map(n => ({ id: n.id, initialX: n.x, initialY: n.y }));
+					}
 					
 					// Pop Logic fires exactly when drag officially breaks the 3px threshold
 					if (node.parentId) {
@@ -69,6 +84,11 @@
 				const dx = (ev.clientX - startX) / canvasState.scale;
 				const dy = (ev.clientY - startY) / canvasState.scale;
 				nodesState.updateNodePosition(node.id, activeInitialX + dx, activeInitialY + dy);
+				
+				// Move geometrically contained children if dragging a frame
+				for (const child of childrenToMove) {
+					nodesState.updateNodePosition(child.id, child.initialX + dx, child.initialY + dy);
+				}
 			}
 		}
 
@@ -212,6 +232,7 @@
 		image: ImageNode,
 		docs: DocsNode,
 		sheet: SheetNode,
+		frame: FrameNode
 	};
 
 	let NodeComponent = $derived(
@@ -257,7 +278,7 @@
 	bind:clientWidth={node.actualWidth}
 	bind:clientHeight={node.actualHeight}
 	data-node-id={node.id}
-	class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md shadow-lg shadow-black/50 transition-shadow outline-none flex flex-col overflow-hidden select-text {nodesState.selectedNodeId === node.id ? 'ring-1 ring-[var(--color-accent)] z-20' : 'z-10'} {isNested ? 'relative' : 'absolute'}"
+	class="group transition-shadow outline-none flex flex-col overflow-hidden select-text {node.type === 'frame' ? (nodesState.selectedNodeId === node.id ? 'z-[5]' : 'z-0') : (nodesState.selectedNodeId === node.id ? 'ring-1 ring-[var(--color-accent)] z-20' : 'z-10')} {isNested ? 'relative' : 'absolute'} {node.type === 'frame' ? 'bg-transparent border-0 shadow-none' : 'bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md shadow-lg shadow-black/50'}"
 	style="
 		{isNested ? '' : `transform: translate(${node.x}px, ${node.y}px);`} 
 		width: {isNested ? '100%' : node.width + 'px'}; 
@@ -267,21 +288,23 @@
 	onclickcapture={(e) => { if (dragJustFinished) { e.stopPropagation(); } }}
 	role="button"
 >
-	<!-- OS UI Top Bar -->
-	<div class="os-header h-[14px] w-full bg-[#111] border-b border-[var(--color-border)] flex items-center justify-between px-2 cursor-grab active:cursor-grabbing shrink-0 z-20">
-		<div class="flex gap-1 opacity-30 group-hover:opacity-100 transition-opacity pointer-events-none">
-			<div class="w-1.5 h-1.5 rounded-full bg-[#ff5f56]"></div>
-			<div class="w-1.5 h-1.5 rounded-full bg-[#ffbd2e]"></div>
-			<div class="w-1.5 h-1.5 rounded-full bg-[#27c93f]"></div>
+	{#if node.type !== 'frame'}
+		<!-- OS UI Top Bar -->
+		<div class="os-header h-[14px] w-full bg-[#111] border-b border-[var(--color-border)] flex items-center justify-between px-2 cursor-grab active:cursor-grabbing shrink-0 z-20">
+			<div class="flex gap-1 opacity-30 group-hover:opacity-100 transition-opacity pointer-events-none">
+				<div class="w-1.5 h-1.5 rounded-full bg-[#ff5f56]"></div>
+				<div class="w-1.5 h-1.5 rounded-full bg-[#ffbd2e]"></div>
+				<div class="w-1.5 h-1.5 rounded-full bg-[#27c93f]"></div>
+			</div>
+			<button 
+				class="w-3 h-3 text-[var(--color-text-secondary)] hover:text-red-400 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer pointer-events-auto"
+				onclick={(e) => { e.stopPropagation(); nodesState.removeNode(node.id); }}
+				title="Delete node"
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+			</button>
 		</div>
-		<button 
-			class="w-3 h-3 text-[var(--color-text-secondary)] hover:text-red-400 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer pointer-events-auto"
-			onclick={(e) => { e.stopPropagation(); nodesState.removeNode(node.id); }}
-			title="Delete node"
-		>
-			<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-		</button>
-	</div>
+	{/if}
 
 	<!-- Node Specific Content -->
 	<div class="flex-1 w-full h-[calc(100%-14px)] relative {node.type === 'column' ? 'flex flex-col' : ''}">
@@ -292,37 +315,39 @@
 		{/if}
 	</div>
 
-	<!-- Connection Anchor UI Top (Semi-circle clipped by OS header Z-index) -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div 
-		class="absolute top-[6px] left-1/2 -translate-x-1/2 w-4 h-4 rounded-full cursor-crosshair transition-all shadow border border-[var(--color-surface)] z-10 
-		{isTopTarget ? 'bg-[var(--color-accent)] opacity-100 scale-150 ring-2 ring-[var(--color-accent)] ring-offset-2 ring-offset-[var(--color-surface)]' : 'bg-[var(--color-border)] opacity-0 group-hover:opacity-100 hover:scale-125 hover:bg-[var(--color-accent)]'}"
-		onpointerdown={(e) => handleAnchorPointerDown(e, 'top')}
-	></div>
+	{#if node.type !== 'frame'}
+		<!-- Connection Anchor UI Top (Semi-circle clipped by OS header Z-index) -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div 
+			class="absolute top-[6px] left-1/2 -translate-x-1/2 w-4 h-4 rounded-full cursor-crosshair transition-all shadow border border-[var(--color-surface)] z-10 
+			{isTopTarget ? 'bg-[var(--color-accent)] opacity-100 scale-150 ring-2 ring-[var(--color-accent)] ring-offset-2 ring-offset-[var(--color-surface)]' : 'bg-[var(--color-border)] opacity-0 group-hover:opacity-100 hover:scale-125 hover:bg-[var(--color-accent)]'}"
+			onpointerdown={(e) => handleAnchorPointerDown(e, 'top')}
+		></div>
 
-	<!-- Connection Anchor UI Bottom -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div 
-		class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full cursor-crosshair transition-all shadow border border-[var(--color-surface)] z-10 
-		{isBottomTarget ? 'bg-[var(--color-accent)] opacity-100 scale-150 ring-2 ring-[var(--color-accent)] ring-offset-2 ring-offset-[var(--color-surface)]' : 'bg-[var(--color-border)] opacity-0 group-hover:opacity-100 hover:scale-125 hover:bg-[var(--color-accent)]'}"
-		onpointerdown={(e) => handleAnchorPointerDown(e, 'bottom')}
-	></div>
+		<!-- Connection Anchor UI Bottom -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div 
+			class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full cursor-crosshair transition-all shadow border border-[var(--color-surface)] z-10 
+			{isBottomTarget ? 'bg-[var(--color-accent)] opacity-100 scale-150 ring-2 ring-[var(--color-accent)] ring-offset-2 ring-offset-[var(--color-surface)]' : 'bg-[var(--color-border)] opacity-0 group-hover:opacity-100 hover:scale-125 hover:bg-[var(--color-accent)]'}"
+			onpointerdown={(e) => handleAnchorPointerDown(e, 'bottom')}
+		></div>
 
-	<!-- Connection Anchor UI Left -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div 
-		class="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full cursor-crosshair transition-all shadow border border-[var(--color-surface)] z-10 
-		{isLeftTarget ? 'bg-[var(--color-accent)] opacity-100 scale-150 ring-2 ring-[var(--color-accent)] ring-offset-2 ring-offset-[var(--color-surface)]' : 'bg-[var(--color-border)] opacity-0 group-hover:opacity-100 hover:scale-125 hover:bg-[var(--color-accent)]'}"
-		onpointerdown={(e) => handleAnchorPointerDown(e, 'left')}
-	></div>
+		<!-- Connection Anchor UI Left -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div 
+			class="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full cursor-crosshair transition-all shadow border border-[var(--color-surface)] z-10 
+			{isLeftTarget ? 'bg-[var(--color-accent)] opacity-100 scale-150 ring-2 ring-[var(--color-accent)] ring-offset-2 ring-offset-[var(--color-surface)]' : 'bg-[var(--color-border)] opacity-0 group-hover:opacity-100 hover:scale-125 hover:bg-[var(--color-accent)]'}"
+			onpointerdown={(e) => handleAnchorPointerDown(e, 'left')}
+		></div>
 
-	<!-- Connection Anchor UI Right -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div 
-		class="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full cursor-crosshair transition-all shadow border border-[var(--color-surface)] z-10 
-		{isRightTarget ? 'bg-[var(--color-accent)] opacity-100 scale-150 ring-2 ring-[var(--color-accent)] ring-offset-2 ring-offset-[var(--color-surface)]' : 'bg-[var(--color-border)] opacity-0 group-hover:opacity-100 hover:scale-125 hover:bg-[var(--color-accent)]'}"
-		onpointerdown={(e) => handleAnchorPointerDown(e, 'right')}
-	></div>
+		<!-- Connection Anchor UI Right -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div 
+			class="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full cursor-crosshair transition-all shadow border border-[var(--color-surface)] z-10 
+			{isRightTarget ? 'bg-[var(--color-accent)] opacity-100 scale-150 ring-2 ring-[var(--color-accent)] ring-offset-2 ring-offset-[var(--color-surface)]' : 'bg-[var(--color-border)] opacity-0 group-hover:opacity-100 hover:scale-125 hover:bg-[var(--color-accent)]'}"
+			onpointerdown={(e) => handleAnchorPointerDown(e, 'right')}
+		></div>
+	{/if}
 
 	<!-- Resize UI Handle -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->

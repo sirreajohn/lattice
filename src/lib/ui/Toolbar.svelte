@@ -130,6 +130,26 @@
 			<span class="absolute bottom-full mb-3 opacity-0 group-hover:opacity-100 bg-surface border border-t-accent border-border text-accent text-[10px] font-bold tracking-widest rounded-none px-2 py-1 shadow-[0_5px_15px_rgba(0,0,0,0.8)] whitespace-nowrap pointer-events-none transition-opacity">Erase <span class="ml-1 opacity-50">[{shortcutsState.getLabel('tool-eraser')}]</span></span>
 		</button>
 
+		<button
+			onclick={() => (nodesState.activeTool = "text")}
+			class="group relative flex items-center justify-center w-8 h-8 rounded-none transition-colors {nodesState.activeTool ===
+			'text'
+				? 'text-accent bg-accent/20 shadow-[inset_0_-2px_0_0_var(--color-accent)]'
+				: 'text-text-secondary hover:text-text-primary hover:bg-text-primary/10'}"
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7" /><line x1="9" y1="20" x2="15" y2="20" /><line x1="12" y1="4" x2="12" y2="20" /></svg>
+			<span class="absolute bottom-full mb-3 opacity-0 group-hover:opacity-100 bg-surface border border-t-accent border-border text-accent text-[10px] font-bold tracking-widest rounded-none px-2 py-1 shadow-[0_5px_15px_rgba(0,0,0,0.8)] whitespace-nowrap pointer-events-none transition-opacity">Text <span class="ml-1 opacity-50">[{shortcutsState.getLabel('tool-text')}]</span></span>
+		</button>
+
+		<button
+			onclick={() => nodesState.addFrame()}
+			class="group relative flex items-center justify-center w-8 h-8 text-text-secondary hover:text-text-primary hover:bg-text-primary/10 rounded-none transition-colors"
+			aria-label="Add Frame"
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M4 8h16"/><path d="M8 4v16"/></svg>
+			<span class="absolute bottom-full mb-3 opacity-0 group-hover:opacity-100 bg-surface border border-t-accent border-border text-accent text-[10px] uppercase font-mono font-bold tracking-widest rounded-none px-2 py-1 shadow-[0_5px_15px_rgba(0,0,0,0.8)] whitespace-nowrap pointer-events-none transition-opacity">Frame <span class="ml-1 opacity-50">[{shortcutsState.getLabel('add-frame')}]</span></span>
+		</button>
+
 		<div class="h-5 w-px bg-text-primary/10 mx-1"></div>
 
 		<!-- Nodes Section -->
@@ -173,6 +193,7 @@
 				</div>
 			{/if}
 		</div>
+
 
 		<button
 			onclick={() => nodesState.addColumn()}

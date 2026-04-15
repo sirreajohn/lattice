@@ -25,7 +25,10 @@
 	let selectedExportBoards = $state(new Set());
 
 	$effect(() => {
-		if (themeState.isOpen && (activeTab === "boards" || activeTab === "data")) {
+		if (
+			themeState.isOpen &&
+			(activeTab === "boards" || activeTab === "data")
+		) {
 			untrack(() => fetchBoards());
 		}
 	});
@@ -110,7 +113,9 @@
 		if (selectedExportBoards.size === allBoards.length) {
 			selectedExportBoards = new Set();
 		} else {
-			selectedExportBoards = new Set(allBoards.map((/** @type {any} */ b) => b.id));
+			selectedExportBoards = new Set(
+				allBoards.map((/** @type {any} */ b) => b.id),
+			);
 		}
 	}
 
@@ -124,7 +129,9 @@
 		try {
 			let blob;
 			if (env.PUBLIC_DB_MODE === "temp") {
-				const payload = nodesState.exportState(Array.from(selectedExportBoards));
+				const payload = nodesState.exportState(
+					Array.from(selectedExportBoards),
+				);
 				const res = await fetch("/api/data/export", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -136,7 +143,9 @@
 				}
 				blob = await res.blob();
 			} else {
-				const res = await fetch(`/api/data/export?boardIds=${Array.from(selectedExportBoards).join(',')}`);
+				const res = await fetch(
+					`/api/data/export?boardIds=${Array.from(selectedExportBoards).join(",")}`,
+				);
 				if (!res.ok) {
 					const err = await res.json();
 					alert(err.error || "Export failed");
@@ -265,12 +274,14 @@
 				{ action: "tool-pointer", label: "Select Tool" },
 				{ action: "tool-pencil", label: "Draw Tool" },
 				{ action: "tool-eraser", label: "Eraser Tool" },
+				{ action: "tool-text", label: "Text Tool" },
 			],
 		},
 		{
-			title: "Cards & Boards",
+			title: "Cards & Frames",
 			items: [
 				{ action: "add-note", label: "New Note" },
+				{ action: "add-frame", label: "New Frame" },
 				{ action: "add-board", label: "New Sub-Board" },
 				{ action: "add-column", label: "New Column/Deck" },
 				{ action: "add-image", label: "New Image" },
@@ -668,47 +679,77 @@
 							<p
 								class="text-xs text-text-secondary leading-relaxed mb-4 flex-1"
 							>
-								Select boards to export. Nested boards inside selected boards are automatically included.
+								Select boards to export. Nested boards inside
+								selected boards are automatically included.
 							</p>
 
 							{#if loadingBoards}
-								<div class="h-32 flex items-center justify-center text-sm text-text-secondary opacity-50 mb-4">
+								<div
+									class="h-32 flex items-center justify-center text-sm text-text-secondary opacity-50 mb-4"
+								>
 									Loading boards...
 								</div>
 							{:else}
 								<div class="mb-4">
-									<label class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-text-primary/5 rounded border border-transparent transition-colors mb-2">
-										<input 
-											type="checkbox" 
+									<label
+										class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-text-primary/5 rounded border border-transparent transition-colors mb-2"
+									>
+										<input
+											type="checkbox"
 											class="w-4 h-4 rounded border-border text-accent focus:ring-accent"
-											checked={selectedExportBoards.size > 0 && selectedExportBoards.size === allBoards.length}
-											indeterminate={selectedExportBoards.size > 0 && selectedExportBoards.size < allBoards.length}
+											checked={selectedExportBoards.size >
+												0 &&
+												selectedExportBoards.size ===
+													allBoards.length}
+											indeterminate={selectedExportBoards.size >
+												0 &&
+												selectedExportBoards.size <
+													allBoards.length}
 											onchange={toggleAllExportBoards}
 										/>
-										<span class="text-sm font-bold text-text-primary select-none">Select All</span>
+										<span
+											class="text-sm font-bold text-text-primary select-none"
+											>Select All</span
+										>
 									</label>
 
-									<div class="h-40 overflow-y-auto mb-4 p-1 border border-border/50 rounded bg-black/10">
+									<div
+										class="h-40 overflow-y-auto mb-4 p-1 border border-border/50 rounded bg-black/10"
+									>
 										{#each allBoards as board}
-											<label class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-text-primary/10 rounded transition-colors group">
-												<input 
-													type="checkbox" 
+											<label
+												class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-text-primary/10 rounded transition-colors group"
+											>
+												<input
+													type="checkbox"
 													class="w-4 h-4 rounded border-border text-accent focus:ring-accent"
-													checked={selectedExportBoards.has(board.id)}
-													onchange={() => toggleExportBoard(board.id)}
+													checked={selectedExportBoards.has(
+														board.id,
+													)}
+													onchange={() =>
+														toggleExportBoard(
+															board.id,
+														)}
 												/>
 												<div class="flex-1 min-w-0">
-													<div class="text-sm font-medium text-text-primary truncate select-none group-hover:text-accent transition-colors">
-														{board.name || (`Board ${board.id.slice(0, 6)}`)}
+													<div
+														class="text-sm font-medium text-text-primary truncate select-none group-hover:text-accent transition-colors"
+													>
+														{board.name ||
+															`Board ${board.id.slice(0, 6)}`}
 													</div>
-													<div class="text-[10px] text-text-secondary opacity-50 truncate font-mono select-none">
+													<div
+														class="text-[10px] text-text-secondary opacity-50 truncate font-mono select-none"
+													>
 														{board.id}
 													</div>
 												</div>
 											</label>
 										{/each}
 										{#if allBoards.length === 0}
-											<div class="flex items-center justify-center h-full text-xs text-text-secondary opacity-50">
+											<div
+												class="flex items-center justify-center h-full text-xs text-text-secondary opacity-50"
+											>
 												No boards available.
 											</div>
 										{/if}
@@ -718,7 +759,8 @@
 
 							<button
 								onclick={handleExport}
-								disabled={isExporting || selectedExportBoards.size === 0}
+								disabled={isExporting ||
+									selectedExportBoards.size === 0}
 								class="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-bold uppercase tracking-widest transition-all
 									{isExporting || selectedExportBoards.size === 0
 									? 'bg-text-primary/10 text-text-secondary cursor-not-allowed'
@@ -750,7 +792,7 @@
 											y2="3"
 										/></svg
 									>
-									Download Backup
+									Export Data
 								{/if}
 							</button>
 						</div>

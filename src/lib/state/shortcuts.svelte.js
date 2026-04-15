@@ -6,6 +6,7 @@ export class ShortcutsState {
 		'tool-pointer': '1',
 		'tool-pencil': '2',
 		'tool-eraser': '3',
+		'tool-text': '4',
 		// Cards
 		'add-note': 'n',
 		'add-board': 'b',
@@ -14,6 +15,7 @@ export class ShortcutsState {
 		'add-doc': 'd',
 		'add-sheet': 's',
 		'add-video': 'v',
+		'add-frame': 'f',
 	});
 
 	constructor() {

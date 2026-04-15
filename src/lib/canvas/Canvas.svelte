@@ -4,6 +4,7 @@
 	import BaseNode from "$lib/nodes/BaseNode.svelte";
 	import ConnectionLines from "./ConnectionLines.svelte";
 	import CanvasDrawings from "./CanvasDrawings.svelte";
+	import CanvasTexts from "./CanvasTexts.svelte";
 	import { processDroppedFile } from "$lib/utils/docs.js";
 
 	let { children } = $props();
@@ -12,6 +13,8 @@
 	let canvasElement = $state();
 	/** @type {string | null} */
 	let activeDrawingId = $state(null);
+	/** @type {ReturnType<typeof CanvasTexts> | null} */
+	let canvasTextsRef = $state(null);
 
 	/** @param {PointerEvent} e */
 	function handlePointerDown(e) {
@@ -68,8 +71,26 @@
 		}
 
 		if (nodesState.activeTool === "eraser") {
-			// Eraser click-and-drag logic is largely handled natively by CanvasDrawings onpointerenter
-			// We just skip panning
+			return;
+		}
+
+		// Text tool: click to place a new text annotation
+		if (nodesState.activeTool === "text" && isLeftClick) {
+			nodesState.selectedNodeId = null;
+			const canvasPos = canvasState.screenToCanvas(e.clientX, e.clientY);
+			const newId = crypto.randomUUID();
+			nodesState.addTextAnnotation({
+				id: newId,
+				x: canvasPos.x,
+				y: canvasPos.y,
+				text: "",
+				color: "var(--color-text-primary)",
+				fontSize: 14,
+			});
+			// Focus the new annotation
+			if (canvasTextsRef) {
+				canvasTextsRef.focusAnnotation(newId);
+			}
 			return;
 		}
 
@@ -281,7 +302,9 @@
 		cursor: {nodesState.activeTool === 'pencil' ||
 	nodesState.activeTool === 'eraser'
 		? 'crosshair'
-		: 'default'};
+		: nodesState.activeTool === 'text'
+			? 'text'
+			: 'default'};
 	"
 >
 	<div
@@ -289,6 +312,7 @@
 		style="transform: translate({canvasState.x}px, {canvasState.y}px) scale({canvasState.scale})"
 	>
 		<CanvasDrawings />
+		<CanvasTexts bind:this={canvasTextsRef} />
 		<ConnectionLines />
 		{#each nodesState.nodes.filter((n) => !n.parentId) as node (node.id)}
 			<BaseNode {node} />

@@ -30,7 +30,8 @@ export class NodesState {
 
 	// Freeform Drawing State
 	drawings = $state([]);
-	activeTool = $state('pointer'); // 'pointer', 'pencil', 'eraser'
+	textAnnotations = $state([]);
+	activeTool = $state('pointer'); // 'pointer', 'pencil', 'eraser', 'text'
 	drawingColor = $state('var(--color-text-primary)');
 	drawingWidth = $state(3);
 
@@ -66,6 +67,24 @@ export class NodesState {
 
 	removeDrawing(id) {
 		this.drawings = this.drawings.filter(d => d.id !== id);
+		this.saveToStorage();
+	}
+
+	addTextAnnotation(annotation) {
+		this.textAnnotations.push(annotation);
+		this.saveToStorage();
+	}
+
+	updateTextAnnotation(id, data) {
+		const t = this.textAnnotations.find(t => t.id === id);
+		if (t) {
+			Object.assign(t, data);
+			this.saveToStorage();
+		}
+	}
+
+	removeTextAnnotation(id) {
+		this.textAnnotations = this.textAnnotations.filter(t => t.id !== id);
 		this.saveToStorage();
 	}
 
@@ -171,6 +190,7 @@ export class NodesState {
 						this.nodes = JSON.parse(JSON.stringify(cached.nodes));
 						this.connections = JSON.parse(JSON.stringify(cached.connections));
 						this.drawings = JSON.parse(JSON.stringify(cached.drawings || []));
+						this.textAnnotations = JSON.parse(JSON.stringify(cached.textAnnotations || []));
 						this.parentId = cached.parentId || seedParentId || null;
 						this.depth = cached.depth || seedDepth || 0;
 						this.lineage = this._computeTempLineage(targetBoardId);
@@ -249,6 +269,7 @@ export class NodesState {
 					if (localData.nodes) this.nodes = typeof localData.nodes === 'string' ? JSON.parse(localData.nodes) : localData.nodes;
 					if (localData.connections) this.connections = typeof localData.connections === 'string' ? JSON.parse(localData.connections) : localData.connections;
 					if (localData.drawings) this.drawings = typeof localData.drawings === 'string' ? JSON.parse(localData.drawings) : localData.drawings;
+					if (localData.text_annotations) this.textAnnotations = typeof localData.text_annotations === 'string' ? JSON.parse(localData.text_annotations) : localData.text_annotations;
 					this.parentId = localData.parent_id ?? seedParentId;
 					this.depth = localData.depth !== undefined && localData.depth !== 0 ? localData.depth : seedDepth;
 					
@@ -298,6 +319,7 @@ export class NodesState {
 		const snapNodes = JSON.stringify($state.snapshot(this.nodes));
 		const snapConnections = JSON.stringify($state.snapshot(this.connections));
 		const snapDrawings = JSON.stringify($state.snapshot(this.drawings));
+		const snapTextAnnotations = JSON.stringify($state.snapshot(this.textAnnotations));
 		const snapName = globalMetadata.getName(this.boardId);
 		
 		// Guard: Don't save if board ID is missing, or if it's the default board and it's completely empty.
@@ -317,7 +339,8 @@ export class NodesState {
 						depth: snapDepth,
 						nodes: JSON.parse(snapNodes),
 						connections: JSON.parse(snapConnections),
-						drawings: JSON.parse(snapDrawings)
+						drawings: JSON.parse(snapDrawings),
+						textAnnotations: JSON.parse(snapTextAnnotations)
 					});
 					return;
 				}
@@ -482,6 +505,17 @@ export class NodesState {
 		}
 	}
 
+	addFrame() {
+		const center = this.getCenter();
+		const id = this.addNode("frame", center.x - 300, center.y - 200, { title: "Overlay Group", color: "emerald" });
+		const node = this.nodes.find((n) => n.id === id);
+		if (node) {
+			node.width = 600;
+			node.height = 400;
+			this.saveToStorage();
+		}
+	}
+
 	addSpreadsheet() {
 		const center = this.getCenter();
 		const emptySheet = {
@@ -539,7 +573,8 @@ export class NodesState {
 				depth: data.depth,
 				nodes: data.nodes,
 				connections: data.connections,
-				drawings: data.drawings
+				drawings: data.drawings,
+				textAnnotations: data.textAnnotations || []
 			});
 		}
 
@@ -563,7 +598,8 @@ export class NodesState {
 				depth: board.depth || 0,
 				nodes: board.nodes || [],
 				connections: board.connections || [],
-				drawings: board.drawings || []
+				drawings: board.drawings || [],
+				textAnnotations: board.textAnnotations || []
 			});
 			if (board.name) globalMetadata.setName(board.id, board.name);
 		}
