@@ -43,17 +43,21 @@
 		let startY = e.clientY;
 		let activeInitialX = node.x;
 		let activeInitialY = node.y;
-		let childrenToMove = []; // Geometrically enclosed children 
+		let childrenToMove = []; // Geometrically enclosed nodes
+		let textsToMove = [];    // Geometrically enclosed texts
+		let drawingsToMove = []; // Geometrically enclosed drawings
 
 		function handlePointerMove(ev) {
 			if (!isDragging) {
 				if (Math.abs(ev.clientX - startX) > 3 || Math.abs(ev.clientY - startY) > 3) {
 					isDragging = true;
 
-					// If dragging a frame, cache the visually enclosed children to move them
+					// If dragging a frame, cache all visually enclosed elements
 					if (node.type === 'frame') {
 						const frameW = node.width;
 						const frameH = node.actualHeight || node.height || 400;
+						
+						// 1. Collect nodes
 						childrenToMove = nodesState.nodes.filter(n => 
 							n.id !== node.id && 
 							n.x >= node.x && 
@@ -61,6 +65,25 @@
 							n.x + (n.width || 0) <= node.x + frameW && 
 							n.y + (n.actualHeight || n.height || 0) <= node.y + frameH
 						).map(n => ({ id: n.id, initialX: n.x, initialY: n.y }));
+
+						// 2. Collect text annotations
+						textsToMove = nodesState.textAnnotations.filter(t => 
+							t.x >= node.x && 
+							t.y >= node.y && 
+							t.x + (t.width || 0) <= node.x + frameW && 
+							t.y + (t.fontSize || 0) <= node.y + frameH
+						).map(t => ({ id: t.id, initialX: t.x, initialY: t.y }));
+
+						// 3. Collect drawings (strict containment: all points must be inside)
+						drawingsToMove = nodesState.drawings.filter(d => 
+							d.points.every(p => 
+								p.x >= node.x && p.x <= node.x + frameW &&
+								p.y >= node.y && p.y <= node.y + frameH
+							)
+						).map(d => ({ 
+							id: d.id, 
+							initialPoints: d.points.map(p => ({ x: p.x, y: p.y })) 
+						}));
 					}
 					
 					// Pop Logic fires exactly when drag officially breaks the 3px threshold
@@ -88,6 +111,26 @@
 				// Move geometrically contained children if dragging a frame
 				for (const child of childrenToMove) {
 					nodesState.updateNodePosition(child.id, child.initialX + dx, child.initialY + dy);
+				}
+
+				// Move text annotations
+				for (const text of textsToMove) {
+					const t = nodesState.textAnnotations.find(ta => ta.id === text.id);
+					if (t) {
+						t.x = text.initialX + dx;
+						t.y = text.initialY + dy;
+					}
+				}
+
+				// Move drawings by shifting every point
+				for (const drawing of drawingsToMove) {
+					const d = nodesState.drawings.find(dr => dr.id === drawing.id);
+					if (d) {
+						d.points = drawing.initialPoints.map(p => ({
+							x: p.x + dx,
+							y: p.y + dy
+						}));
+					}
 				}
 			}
 		}
@@ -278,7 +321,7 @@
 	bind:clientWidth={node.actualWidth}
 	bind:clientHeight={node.actualHeight}
 	data-node-id={node.id}
-	class="group transition-shadow outline-none flex flex-col overflow-hidden select-text {node.type === 'frame' ? (nodesState.selectedNodeId === node.id ? 'z-[5]' : 'z-0') : (nodesState.selectedNodeId === node.id ? 'ring-1 ring-[var(--color-accent)] z-20' : 'z-10')} {isNested ? 'relative' : 'absolute'} {node.type === 'frame' ? 'bg-transparent border-0 shadow-none' : 'bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md shadow-lg shadow-black/50'}"
+	class="group transition-shadow outline-none flex flex-col overflow-hidden select-text {node.type === 'frame' ? (nodesState.selectedNodeId === node.id ? 'z-[5] pointer-events-none' : 'z-0 pointer-events-none') : (nodesState.selectedNodeId === node.id ? 'ring-1 ring-[var(--color-accent)] z-20 pointer-events-auto' : 'z-10 pointer-events-auto')} {isNested ? 'relative' : 'absolute'} {node.type === 'frame' ? 'bg-transparent border-0 shadow-none' : 'bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md shadow-lg shadow-black/50'}"
 	style="
 		{isNested ? '' : `transform: translate(${node.x}px, ${node.y}px);`} 
 		width: {isNested ? '100%' : node.width + 'px'}; 
@@ -352,7 +395,7 @@
 	<!-- Resize UI Handle -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div 
-		class="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity z-20"
+		class="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-auto"
 		onpointerdown={handleResizeDown}
 	>
 		<div class="absolute bottom-1 right-1 w-2 h-2 opacity-30 text-[var(--color-text-secondary)]">

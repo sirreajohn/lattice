@@ -184,6 +184,12 @@ export class NodesState {
 
 		try {
 			if (typeof window !== 'undefined') {
+				// Reset current board state to prevent leakage from previous board
+				this.nodes = [];
+				this.connections = [];
+				this.drawings = [];
+				this.textAnnotations = [];
+
 				if (DB_MODE === 'temp') {
 					if (this._tempCache.has(targetBoardId)) {
 						const cached = this._tempCache.get(targetBoardId);
@@ -232,8 +238,8 @@ export class NodesState {
 						// If server is strictly newer, blindly copy it into PGlite to hydrate optimistic state
 						if (serverDate > localDate) {
 							await localDb.query(`
-								INSERT INTO boards (id, name, parent_id, depth, nodes, connections, drawings, updated_at)
-								VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+								INSERT INTO boards (id, name, parent_id, depth, nodes, connections, drawings, text_annotations, updated_at)
+								VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 								ON CONFLICT (id) DO UPDATE SET
 									name = EXCLUDED.name,
 									parent_id = EXCLUDED.parent_id,
@@ -241,6 +247,7 @@ export class NodesState {
 									nodes = EXCLUDED.nodes,
 									connections = EXCLUDED.connections,
 									drawings = EXCLUDED.drawings,
+									text_annotations = EXCLUDED.text_annotations,
 									updated_at = EXCLUDED.updated_at;
 							`, [
 								serverBoard.id,
@@ -250,6 +257,7 @@ export class NodesState {
 								JSON.stringify(serverBoard.nodes || []),
 								JSON.stringify(serverBoard.connections || []),
 								JSON.stringify(serverBoard.drawings || []),
+								JSON.stringify(serverBoard.textAnnotations || []),
 								serverBoard.updated_at || new Date().toISOString()
 							]);
 							if (this._loadGeneration !== loadGen) return;
@@ -349,8 +357,8 @@ export class NodesState {
 				
 				// Standard explicit Upsert syntax for PostgreSQL/PGlite
 				await localDb.query(`
-					INSERT INTO boards (id, name, parent_id, depth, nodes, connections, drawings, updated_at)
-					VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+					INSERT INTO boards (id, name, parent_id, depth, nodes, connections, drawings, text_annotations, updated_at)
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
 					ON CONFLICT (id) DO UPDATE SET
 						name = EXCLUDED.name,
 						parent_id = EXCLUDED.parent_id,
@@ -358,6 +366,7 @@ export class NodesState {
 						nodes = EXCLUDED.nodes,
 						connections = EXCLUDED.connections,
 						drawings = EXCLUDED.drawings,
+						text_annotations = EXCLUDED.text_annotations,
 						updated_at = NOW();
 				`, [
 					snapBoardId,
@@ -366,7 +375,8 @@ export class NodesState {
 					snapDepth,
 					snapNodes,
 					snapConnections,
-					snapDrawings
+					snapDrawings,
+					JSON.stringify(this.textAnnotations)
 				]);
 				
 				// Queue background write to authoritative Postgres server
@@ -381,7 +391,8 @@ export class NodesState {
 						depth: snapDepth,
 						nodes: JSON.parse(snapNodes),
 						connections: JSON.parse(snapConnections),
-						drawings: JSON.parse(snapDrawings)
+						drawings: JSON.parse(snapDrawings),
+						textAnnotations: this.textAnnotations
 					})
 				}).catch(e => console.warn('Background sync to upstream server failed (offline mode fallback engaged)', e));
 			}

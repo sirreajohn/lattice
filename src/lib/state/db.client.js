@@ -27,8 +27,17 @@ export async function initLocalDb() {
 					connections JSONB,
 					user_id TEXT,
 					drawings JSONB DEFAULT '[]'::jsonb,
+					text_annotations JSONB DEFAULT '[]'::jsonb,
 					updated_at TIMESTAMP
 				);
+
+				-- Migration for existing databases
+				DO $$ 
+				BEGIN 
+					IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='boards' AND column_name='text_annotations') THEN
+						ALTER TABLE boards ADD COLUMN text_annotations JSONB DEFAULT '[]'::jsonb;
+					END IF;
+				END $$;
 			`);
 
 			console.log("Browser PGlite ready (Standalone mode)");

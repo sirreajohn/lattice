@@ -33,15 +33,46 @@
 				n.y + (n.actualHeight || n.height || 0) <= node.y + frameH,
 		);
 
+		const containedTexts = nodesState.textAnnotations.filter(
+			(t) =>
+				t.x >= node.x &&
+				t.y >= node.y &&
+				t.x + (t.width || 0) <= node.x + frameW &&
+				t.y + (t.fontSize || 0) <= node.y + frameH,
+		);
+
+		const containedDrawings = nodesState.drawings.filter((d) =>
+			d.points.every(
+				(p) =>
+					p.x >= node.x &&
+					p.x <= node.x + frameW &&
+					p.y >= node.y &&
+					p.y <= node.y + frameH,
+			),
+		);
+
+		const totalContained =
+			children.length + containedTexts.length + containedDrawings.length;
+
 		const msg =
-			children.length > 0
-				? `Delete this frame and ${children.length} contained cards?`
+			totalContained > 0
+				? `Delete this frame and ${totalContained} contained items?`
 				: `Delete this frame?`;
 
 		if (confirm(msg)) {
+			// Delete nodes
 			for (const child of children) {
 				nodesState.removeNode(child.id);
 			}
+			// Delete texts
+			for (const text of containedTexts) {
+				nodesState.removeTextAnnotation(text.id);
+			}
+			// Delete drawings
+			for (const drawing of containedDrawings) {
+				nodesState.removeDrawing(drawing.id);
+			}
+			// Delete frame itself
 			nodesState.removeNode(node.id);
 		}
 	}
