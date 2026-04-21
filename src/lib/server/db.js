@@ -16,10 +16,20 @@ export async function initDb() {
 	initializationPromise = (async () => {
 		try {
 			const connectionString = env.DATABASE_URL || process.env.DATABASE_URL;
-			
+
 			if (connectionString) {
 				console.time('postgres-init');
-				db = new Pool({ connectionString });
+				
+				const isCloud = connectionString.includes('supabase.com') || 
+							  connectionString.includes('neon.tech') || 
+							  connectionString.includes('render.com') ||
+							  env.DATABASE_SSL === 'true';
+
+				db = new Pool({ 
+					connectionString,
+					ssl: isCloud ? { rejectUnauthorized: false } : false
+				});
+
 				await db.query('SELECT 1');
 				dbType = 'postgres';
 				console.timeEnd('postgres-init');
