@@ -126,31 +126,33 @@
 		<div
 			class="flex items-center gap-2 px-2 py-1 rounded bg-[var(--color-surface)] border border-[var(--color-border)]"
 			title={dbType === "temp"
-				? "All changes will be lost on page reload"
-				: dbType === "pglite"
-					? "Could not connect to PostgreSQL. Saving to local PGlite (fallthrough mode)."
-					: "Data is saved to central PostgreSQL"}
+				? "Temporary session: All changes will be lost on page reload"
+				: dbType === "cloud"
+					? "Connected to Cloud PostgreSQL (Supabase/Managed)"
+					: dbType === "local-pglite"
+						? "Using local browser storage (PGlite fallback)"
+						: "Connected to Local PostgreSQL (Docker/Localhost)"}
 		>
 			{#if dbType === "temp"}
 				<div
 					class="w-1.5 h-1.5 rounded-full bg-amber-500/80 shadow-[0_0_4px_rgba(245,158,11,0.8)]"
 				></div>
-				<span class="text-[var(--color-text-secondary)]"
-					>Temp Session</span
+				<span class="text-[var(--color-text-secondary)] uppercase tracking-wider text-[9px] font-bold"
+					>TEMP_MODE</span
 				>
-			{:else if dbType === "pglite"}
+			{:else if dbType === "cloud"}
 				<div
-					class="w-1.5 h-1.5 rounded-full bg-blue-500/80 shadow-[0_0_4px_rgba(59,130,246,0.8)]"
+					class="w-1.5 h-1.5 rounded-full bg-cyan-500/80 shadow-[0_0_4px_rgba(6,182,212,0.8)]"
 				></div>
-				<span class="text-[var(--color-text-secondary)] mr-1"
-					>PGlite Fallback</span
+				<span class="text-[var(--color-text-secondary)] uppercase tracking-wider text-[9px] font-bold"
+					>CLOUD_DB</span
 				>
-			{:else}
+			{:else if dbType === "local" || dbType === "local-pglite"}
 				<div
 					class="w-1.5 h-1.5 rounded-full bg-green-500/80 shadow-[0_0_4px_rgba(34,197,94,0.8)]"
 				></div>
-				<span class="text-text-secondary mr-1"
-					>PostgreSQL</span
+				<span class="text-[var(--color-text-secondary)] uppercase tracking-wider text-[9px] font-bold"
+					>{dbType === "local-pglite" ? 'LOCAL_PG' : 'LOCAL_DB'}</span
 				>
 			{/if}
 		</div>
