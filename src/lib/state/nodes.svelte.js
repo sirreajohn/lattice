@@ -23,6 +23,8 @@ export class NodesState {
 	// Array of connections: { id, from: nodeId, to: nodeId }
 	connections = $state([]);
 
+	isFetching = $state(false);
+
 	// Board Hierarchy Navigation Tracking
 	parentId = $state(null);
 	depth = $state(0);
@@ -173,16 +175,18 @@ export class NodesState {
 	}
 
 	async loadFromStorage(seedParentId = null, seedDepth = 0) {
+		this.isFetching = true;
 		const loadGen = ++this._loadGeneration;
 		const targetBoardId = this.boardId;
 
-		// Wait for any in-flight save to flush before reading, to avoid reading stale PGlite state
-		if (this._savePending) {
-			try { await this._savePending; } catch (_) { /* ignore */ }
-			if (this._loadGeneration !== loadGen) return; // Bail if superseded during wait
-		}
-
 		try {
+			// Wait for any in-flight save to flush before reading, to avoid reading stale PGlite state
+			if (this._savePending) {
+				try { await this._savePending; } catch (_) { /* ignore */ }
+				if (this._loadGeneration !== loadGen) return; // Bail if superseded during wait
+			}
+
+			try {
 			if (typeof window !== 'undefined') {
 				// Reset current board state to prevent leakage from previous board
 				this.nodes = [];
@@ -312,8 +316,13 @@ export class NodesState {
 					if (seedParentId) this.saveToStorage();
 				}
 			}
-		} catch (e) {
-			console.error("Failed to load local DB state:", e);
+			} catch (e) {
+				console.error("Failed to load local DB state:", e);
+			}
+		} finally {
+			if (this._loadGeneration === loadGen) {
+				this.isFetching = false;
+			}
 		}
 	}
 

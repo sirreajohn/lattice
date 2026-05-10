@@ -21,12 +21,11 @@
 		// 1. Allow interacting with inputs, textareas, or things that are contenteditable.
 		const target = /** @type {HTMLElement} */ (e.target);
 		if (
-			target && (
-				["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(
-					target.tagName,
-				) ||
-				target.closest("[contenteditable]")
-			)
+			target &&
+			(["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(
+				target.tagName,
+			) ||
+				target.closest("[contenteditable]"))
 		) {
 			return;
 		}
@@ -97,8 +96,10 @@
 		// 2. If clicking on something that bubbled here (not caught by nodes)
 		// and it's specifically the canvas background, deselect and blur.
 		if (e.target === canvasElement) {
-			const activeEl = /** @type {HTMLElement} */ (document.activeElement);
-			if (activeEl && typeof activeEl.blur === 'function') {
+			const activeEl = /** @type {HTMLElement} */ (
+				document.activeElement
+			);
+			if (activeEl && typeof activeEl.blur === "function") {
 				activeEl.blur();
 			}
 			nodesState.selectedNodeId = null;
@@ -153,11 +154,11 @@
 		canvasState.scale = newScale;
 	}
 
-	/** 
-	 * @param {File} file 
-	 * @param {number} x 
-	 * @param {number} y 
-	 * @param {boolean} isScreenPos 
+	/**
+	 * @param {File} file
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {boolean} isScreenPos
 	 */
 	function processImageFile(file, x, y, isScreenPos) {
 		const reader = new FileReader();
@@ -321,5 +322,44 @@
 
 	{#if children}
 		{@render children()}
+	{/if}
+
+	{#if nodesState.isFetching}
+		<div
+			class="absolute inset-0 z-[100] flex items-center justify-center bg-[var(--color-canvas)]/90 backdrop-blur-md pointer-events-auto cursor-wait select-none"
+		>
+			<div class="flex flex-col items-center gap-6">
+				<!-- Terminal-style loading square -->
+				<div class="relative w-12 h-12">
+					<div
+						class="absolute inset-0 border-2 border-[var(--color-lines)]/30"
+					></div>
+					<div
+						class="absolute inset-0 border-t-2 border-[var(--color-lines)] animate-spin [animation-duration:1.5s]"
+					></div>
+					<div
+						class="absolute inset-0 flex items-center justify-center"
+					>
+						<div
+							class="w-2 h-2 bg-[var(--color-lines)] animate-pulse"
+						></div>
+					</div>
+				</div>
+
+				<div class="flex flex-col items-center gap-2">
+					<div
+						class="text-[var(--color-lines)] font-mono text-xs tracking-[0.2em] uppercase opacity-80"
+					>
+						Loading Board...
+					</div>
+					<div
+						class="flex items-center gap-1 font-mono text-[var(--color-text-secondary)] text-[10px]"
+					>
+						<span>Syncing board state</span>
+						<span class="animate-pulse">_</span>
+					</div>
+				</div>
+			</div>
+		</div>
 	{/if}
 </div>
