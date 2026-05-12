@@ -5,6 +5,8 @@
 	import ConnectionLines from "./ConnectionLines.svelte";
 	import CanvasDrawings from "./CanvasDrawings.svelte";
 	import CanvasTexts from "./CanvasTexts.svelte";
+	import ContextMenu from "$lib/ui/ContextMenu.svelte";
+	import { openContextMenu } from "$lib/state/contextMenu.svelte.js";
 	import { processDroppedFile } from "$lib/utils/docs.js";
 
 	let { children } = $props();
@@ -15,6 +17,9 @@
 	let activeDrawingId = $state(null);
 	/** @type {ReturnType<typeof CanvasTexts> | null} */
 	let canvasTextsRef = $state(null);
+	
+	/** @type {{startX: number, startY: number, currentX: number, currentY: number} | null} */
+	let selectionBox = $state(null);
 
 	/** @param {PointerEvent} e */
 	function handlePointerDown(e) {
@@ -102,10 +107,15 @@
 			if (activeEl && typeof activeEl.blur === "function") {
 				activeEl.blur();
 			}
-			nodesState.selectedNodeId = null;
+			if (e.button === 0) {
+				nodesState.clearSelection();
+			}
 		}
 
-		if (e.button === 0 || e.button === 1 || e.altKey) {
+		if (e.button === 1 || e.altKey || e.button === 2) { // Middle click or Alt + Drag or Right Click drag for pan? Wait, right click is context menu.
+			// Let's stick to Option A: Middle click or Alt.
+		}
+		if (e.button === 1 || e.altKey) {
 			e.preventDefault();
 			const startX = e.clientX;
 			const startY = e.clientY;
@@ -125,6 +135,62 @@
 
 			window.addEventListener("pointermove", handlePointerMove);
 			window.addEventListener("pointerup", handlePointerUp);
+			return;
+		}
+
+		// Option A marquee selection (Left-Click Drag on background)
+		if (e.button === 0 && e.target === canvasElement && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
+			e.preventDefault();
+			
+			const startX = e.clientX;
+			const startY = e.clientY;
+			
+			selectionBox = { startX, startY, currentX: startX, currentY: startY };
+
+			function handleMarqueeMove(ev) {
+				selectionBox.currentX = ev.clientX;
+				selectionBox.currentY = ev.clientY;
+			}
+
+			function handleMarqueeUp(ev) {
+				window.removeEventListener("pointermove", handleMarqueeMove);
+				window.removeEventListener("pointerup", handleMarqueeUp);
+				
+				if (selectionBox) {
+					const dx = Math.abs(selectionBox.currentX - selectionBox.startX);
+					const dy = Math.abs(selectionBox.currentY - selectionBox.startY);
+					
+					if (dx > 5 || dy > 5) {
+						nodesState.clearSelection();
+						
+						const minScreenX = Math.min(selectionBox.startX, selectionBox.currentX);
+						const maxScreenX = Math.max(selectionBox.startX, selectionBox.currentX);
+						const minScreenY = Math.min(selectionBox.startY, selectionBox.currentY);
+						const maxScreenY = Math.max(selectionBox.startY, selectionBox.currentY);
+						
+						const startCanvasPos = canvasState.screenToCanvas(minScreenX, minScreenY);
+						const endCanvasPos = canvasState.screenToCanvas(maxScreenX, maxScreenY);
+
+						for (const node of nodesState.nodes) {
+							if (node.parentId) continue; // Don't select nested directly
+							const nodeRight = node.x + (node.actualWidth || node.width || 150);
+							const nodeBottom = node.y + (node.actualHeight || node.height || 100);
+							
+							// AABB intersection
+							if (startCanvasPos.x < nodeRight && 
+								endCanvasPos.x > node.x && 
+								startCanvasPos.y < nodeBottom && 
+								endCanvasPos.y > node.y) {
+								nodesState.selectNode(node.id, true);
+							}
+						}
+					}
+				}
+				selectionBox = null;
+			}
+
+			window.addEventListener("pointermove", handleMarqueeMove);
+			window.addEventListener("pointerup", handleMarqueeUp);
 		}
 	}
 
@@ -293,6 +359,7 @@
 	onwheel={handleWheel}
 	ondragover={(e) => e.preventDefault()}
 	ondrop={handleDrop}
+	oncontextmenu={(e) => { e.preventDefault(); openContextMenu(e.clientX, e.clientY, 'canvas'); }}
 	class="w-full h-screen relative overflow-hidden text-[var(--color-text-primary)] bg-[var(--color-canvas)] select-none touch-none"
 	role="application"
 	aria-label="Infinite Canvas"
@@ -323,6 +390,20 @@
 	{#if children}
 		{@render children()}
 	{/if}
+
+	{#if selectionBox}
+		<div
+			class="fixed pointer-events-none z-[100] border border-[var(--color-accent)] bg-[var(--color-accent)]/10"
+			style="
+				left: {Math.min(selectionBox.startX, selectionBox.currentX)}px;
+				top: {Math.min(selectionBox.startY, selectionBox.currentY)}px;
+				width: {Math.abs(selectionBox.currentX - selectionBox.startX)}px;
+				height: {Math.abs(selectionBox.currentY - selectionBox.startY)}px;
+			"
+		></div>
+	{/if}
+
+	<ContextMenu />
 
 	{#if nodesState.isFetching}
 		<div
