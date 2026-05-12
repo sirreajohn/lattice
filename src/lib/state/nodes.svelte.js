@@ -229,6 +229,18 @@ export class NodesState {
 	}
 
 	removeNode(id) {
+		const node = this.nodes.find(n => n.id === id);
+		// Unstack children when deleting a stack (don't destroy them)
+		if (node?.type === 'stack') {
+			const children = this.nodes.filter(n => n.parentId === id);
+			let offsetY = 0;
+			for (const child of children) {
+				child.parentId = null;
+				child.x = node.x;
+				child.y = node.y + offsetY + 40;
+				offsetY += 50;
+			}
+		}
 		this.nodes = this.nodes.filter(n => n.id !== id);
 		this.connections = this.connections.filter(c => c.from !== id && c.to !== id);
 		this.selectedNodeIds = this.selectedNodeIds.filter(i => i !== id);
@@ -601,6 +613,11 @@ export class NodesState {
 	addColumn() {
 		const center = this.getCenter();
 		this.addNode("column", center.x - 125, center.y - 75, { title: "" });
+	}
+
+	addStack() {
+		const center = this.getCenter();
+		this.addNode("stack", center.x - 125, center.y - 75, { title: "" });
 	}
 
 	addImage() {

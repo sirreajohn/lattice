@@ -87,6 +87,9 @@
 			case "add-video":
 				nodesState.addVideo();
 				break;
+			case "add-stack":
+				nodesState.addStack();
+				break;
 		}
 	}
 

@@ -16,6 +16,7 @@ export class ShortcutsState {
 		'add-sheet': 's',
 		'add-video': 'v',
 		'add-frame': 'f',
+		'add-stack': 'k',
 	});
 
 	constructor() {
