@@ -65,10 +65,11 @@ docker compose up -d --build
 - [X] Freeform draw tools
 - [-] Change card text from md to rich text (descoped, cause document card covers this)
 - [X] Add keyboard shortcuts for tools
-- [ ] overlay card for grouping cards with a title.
+- [X] overlay card for grouping cards with a title.
 - [X] document card to render in full html/md
-- [ ] kanban board????
-- [ ] imports and exports of data to local.
+- [-] kanban board (nah, too much work and u can sorta do this with decks)
+- [X] imports and exports of data to local.
+- [X] Right click menu 
 - [ ] maybe usefull AI features, like semantic vectors to find similar cards or cluster cards of similar topics.
 
 ## 🤝 Contributing

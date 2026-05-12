@@ -49,10 +49,12 @@
 			onclick={(e) => navigate(e, "/")}
 			class="flex items-center gap-2 hover:opacity-80 transition-opacity"
 		>
-			<div class="w-2 h-2 bg-accent animate-pulse shadow-[0_0_8px_theme(colors.accent)]"></div>
+			<div
+				class="w-2 h-2 bg-accent animate-pulse shadow-[0_0_8px_theme(colors.accent)]"
+			></div>
 			<span
 				class="font-bold text-[10px] tracking-[0.2em] uppercase text-text-primary relative top-px"
-				>SYS_LATTICE_</span
+				>LATTICE</span
 			>
 		</a>
 
@@ -120,9 +122,7 @@
 		{/if}
 	</div>
 
-	<div
-		class="flex items-center gap-4 text-xs text-text-secondary"
-	>
+	<div class="flex items-center gap-4 text-xs text-text-secondary">
 		<div
 			class="flex items-center gap-2 px-2 py-1 rounded bg-[var(--color-surface)] border border-[var(--color-border)]"
 			title={dbType === "temp"
@@ -137,22 +137,25 @@
 				<div
 					class="w-1.5 h-1.5 rounded-full bg-amber-500/80 shadow-[0_0_4px_rgba(245,158,11,0.8)]"
 				></div>
-				<span class="text-[var(--color-text-secondary)] uppercase tracking-wider text-[9px] font-bold"
+				<span
+					class="text-[var(--color-text-secondary)] uppercase tracking-wider text-[9px] font-bold"
 					>TEMP_MODE</span
 				>
 			{:else if dbType === "cloud"}
 				<div
 					class="w-1.5 h-1.5 rounded-full bg-cyan-500/80 shadow-[0_0_4px_rgba(6,182,212,0.8)]"
 				></div>
-				<span class="text-[var(--color-text-secondary)] uppercase tracking-wider text-[9px] font-bold"
+				<span
+					class="text-[var(--color-text-secondary)] uppercase tracking-wider text-[9px] font-bold"
 					>CLOUD_DB</span
 				>
 			{:else if dbType === "local" || dbType === "local-pglite"}
 				<div
 					class="w-1.5 h-1.5 rounded-full bg-green-500/80 shadow-[0_0_4px_rgba(34,197,94,0.8)]"
 				></div>
-				<span class="text-[var(--color-text-secondary)] uppercase tracking-wider text-[9px] font-bold"
-					>{dbType === "local-pglite" ? 'LOCAL_PG' : 'LOCAL_DB'}</span
+				<span
+					class="text-[var(--color-text-secondary)] uppercase tracking-wider text-[9px] font-bold"
+					>{dbType === "local-pglite" ? "LOCAL_PG" : "LOCAL_DB"}</span
 				>
 			{/if}
 		</div>
@@ -217,9 +220,7 @@
 								>{user.username}</span
 							>
 						</div>
-						<div
-							class="h-px w-full bg-border/50 my-1"
-						></div>
+						<div class="h-px w-full bg-border/50 my-1"></div>
 						<form method="POST" action="/auth/logout">
 							<button
 								type="submit"

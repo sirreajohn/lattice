@@ -34,6 +34,7 @@ export class NodesState {
 	drawings = $state([]);
 	textAnnotations = $state([]);
 	activeTool = $state('pointer'); // 'pointer', 'pencil', 'eraser', 'text'
+	selectedNodeIds = $state([]);
 	drawingColor = $state('var(--color-text-primary)');
 	drawingWidth = $state(3);
 
@@ -47,6 +48,9 @@ export class NodesState {
 
 	// Draft connection for drawing lines
 	draftConnection = $state(null);
+
+	// In-app clipboard for copy/paste
+	_clipboard = [];
 
 	// Selected node id
 	selectedNodeId = $state(null);
@@ -101,6 +105,95 @@ export class NodesState {
 		return id;
 	}
 
+	toggleSelection(id) {
+		if (this.selectedNodeIds.includes(id)) {
+			this.selectedNodeIds = this.selectedNodeIds.filter(i => i !== id);
+		} else {
+			this.selectedNodeIds.push(id);
+		}
+	}
+
+	selectNode(id, multi = false) {
+		if (multi) {
+			if (!this.selectedNodeIds.includes(id)) {
+				this.selectedNodeIds.push(id);
+			}
+		} else {
+			this.selectedNodeIds = [id];
+		}
+	}
+
+	clearSelection() {
+		this.selectedNodeIds = [];
+	}
+
+	isNodeSelected(id) {
+		return this.selectedNodeIds.includes(id);
+	}
+
+	copyNodes(nodeIds) {
+		const nodesToCopy = nodeIds
+			.map(id => this.nodes.find(n => n.id === id))
+			.filter(Boolean);
+		// Deep clone to sever reactivity
+		this._clipboard = JSON.parse(JSON.stringify(nodesToCopy));
+	}
+
+	pasteNodes(canvasX = null, canvasY = null) {
+		if (this._clipboard.length === 0) return;
+
+		// Compute the bounding box origin of the clipboard nodes
+		let minX = Infinity, minY = Infinity;
+		for (const node of this._clipboard) {
+			if (node.x < minX) minX = node.x;
+			if (node.y < minY) minY = node.y;
+		}
+
+		// If a canvas position is provided, offset so the overbox top-left = cursor.
+		// Otherwise fall back to a simple +30px cascade.
+		const baseOffsetX = canvasX !== null ? canvasX - minX : 30;
+		const baseOffsetY = canvasY !== null ? canvasY - minY : 30;
+
+		const idMap = {};
+		const newIds = [];
+
+		for (const original of this._clipboard) {
+			const newId = crypto.randomUUID();
+			idMap[original.id] = newId;
+
+			const clone = JSON.parse(JSON.stringify(original));
+			clone.id = newId;
+			clone.x += baseOffsetX;
+			clone.y += baseOffsetY;
+			clone.parentId = null; // Pasted nodes are always free-floating
+
+			this.nodes.push(clone);
+			newIds.push(newId);
+		}
+
+		// Recreate connections that existed between copied nodes
+		const copiedIds = new Set(this._clipboard.map(n => n.id));
+		const relevantConns = this.connections.filter(
+			c => copiedIds.has(c.from) && copiedIds.has(c.to)
+		);
+		for (const conn of relevantConns) {
+			this.connections.push({
+				id: crypto.randomUUID(),
+				from: idMap[conn.from],
+				fromPort: conn.fromPort,
+				to: idMap[conn.to],
+				toPort: conn.toPort,
+				label: conn.label || undefined
+			});
+		}
+
+		// Select the newly pasted nodes
+		this.selectedNodeIds = newIds;
+
+		this.saveToStorage();
+		return newIds;
+	}
+
 	updateNodePosition(id, x, y) {
 		const node = this.nodes.find(n => n.id === id);
 		if (node) {
@@ -138,8 +231,26 @@ export class NodesState {
 	removeNode(id) {
 		this.nodes = this.nodes.filter(n => n.id !== id);
 		this.connections = this.connections.filter(c => c.from !== id && c.to !== id);
-		if (this.selectedNodeId === id) this.selectedNodeId = null;
+		this.selectedNodeIds = this.selectedNodeIds.filter(i => i !== id);
 		this.saveToStorage();
+	}
+
+	bringToFront(id) {
+		const index = this.nodes.findIndex(n => n.id === id);
+		if (index > -1 && index < this.nodes.length - 1) {
+			const node = this.nodes.splice(index, 1)[0];
+			this.nodes.push(node);
+			this.saveToStorage();
+		}
+	}
+
+	sendToBack(id) {
+		const index = this.nodes.findIndex(n => n.id === id);
+		if (index > 0) {
+			const node = this.nodes.splice(index, 1)[0];
+			this.nodes.unshift(node);
+			this.saveToStorage();
+		}
 	}
 
 	addConnection(fromId, fromPort, toId, toPort) {

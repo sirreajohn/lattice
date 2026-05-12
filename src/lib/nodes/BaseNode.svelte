@@ -1,6 +1,7 @@
 <script>
 	import { canvasState } from '$lib/state/canvas.svelte.js';
 	import { nodesState } from '$lib/state/nodes.svelte.js';
+	import { openContextMenu } from '$lib/state/contextMenu.svelte.js';
 	import NoteNode from './NoteNode.svelte';
 	import BoardNode from './BoardNode.svelte';
 	import ColumnNode from './ColumnNode.svelte';
@@ -19,7 +20,7 @@
 	let dragJustFinished = false;
 
 	function handlePointerDown(e) {
-		if (e.button !== 0) return;
+		// We want to handle right clicks to select nodes, but not initiate drags.
 		if (['INPUT', 'TEXTAREA', 'BUTTON', 'A'].includes(e.target.tagName)) return;
 		
 		// Always use the OS header as a structural anchor.
@@ -36,13 +37,39 @@
 			e.target.setPointerCapture(e.pointerId);
 		}
 		
-		nodesState.selectedNodeId = node.id;
+		if (e.button === 2) {
+			// Explicitly handle right clicks: do NOT toggle, do NOT drag.
+			// Only select the node if it's currently completely unselected.
+			if (!nodesState.isNodeSelected(node.id)) {
+				nodesState.selectNode(node.id, false);
+			}
+			return;
+		}
+
+		const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+		const isMultiSelectModifier = isMac ? e.metaKey : (e.ctrlKey || e.metaKey);
+
+		if (isMultiSelectModifier && e.button === 0) {
+			nodesState.toggleSelection(node.id);
+			// Don't drag if we just toggled off
+			if (!nodesState.isNodeSelected(node.id)) return;
+		} else if (!nodesState.isNodeSelected(node.id)) {
+			// Node is not selected. 
+			// Clear current selection and select this node.
+			nodesState.selectNode(node.id, false);
+		}
 
 		let isDragging = false;
 		let startX = e.clientX;
 		let startY = e.clientY;
-		let activeInitialX = node.x;
-		let activeInitialY = node.y;
+		
+		let activeInitialPositions = {};
+		for (const id of nodesState.selectedNodeIds) {
+			const n = nodesState.nodes.find(n => n.id === id);
+			if (n) {
+				activeInitialPositions[id] = { x: n.x, y: n.y };
+			}
+		}
 		let childrenToMove = []; // Geometrically enclosed nodes
 		let textsToMove = [];    // Geometrically enclosed texts
 		let drawingsToMove = []; // Geometrically enclosed drawings
@@ -87,17 +114,25 @@
 					}
 					
 					// Pop Logic fires exactly when drag officially breaks the 3px threshold
-					if (node.parentId) {
-						if (baseElement) {
-							const rect = baseElement.getBoundingClientRect();
-							const canvasPos = canvasState.screenToCanvas(rect.left, rect.top);
-							nodesState.updateNodePosition(node.id, canvasPos.x, canvasPos.y);
+					// We only apply this to the primary node being dragged, or we could apply it to all selected nodes.
+					// For simplicity, we apply to all nested selected nodes.
+					for (const id of nodesState.selectedNodeIds) {
+						const n = nodesState.nodes.find(n => n.id === id);
+						if (n && n.parentId) {
+							// If it's the node we grabbed, use baseElement to get exact screen pos
+							if (n.id === node.id && baseElement) {
+								const rect = baseElement.getBoundingClientRect();
+								const canvasPos = canvasState.screenToCanvas(rect.left, rect.top);
+								nodesState.updateNodePosition(n.id, canvasPos.x, canvasPos.y);
+								activeInitialPositions[n.id] = { x: canvasPos.x, y: canvasPos.y };
+							} else {
+								// Fallback for other selected nested nodes (rough estimation)
+								activeInitialPositions[n.id] = { x: n.x, y: n.y }; 
+							}
+							nodesState.updateNodeParent(n.id, null);
 						}
-						nodesState.updateNodeParent(node.id, null);
 					}
 					
-					activeInitialX = node.x;
-					activeInitialY = node.y;
 					startX = ev.clientX;
 					startY = ev.clientY;
 				}
@@ -106,7 +141,13 @@
 			if (isDragging) {
 				const dx = (ev.clientX - startX) / canvasState.scale;
 				const dy = (ev.clientY - startY) / canvasState.scale;
-				nodesState.updateNodePosition(node.id, activeInitialX + dx, activeInitialY + dy);
+				
+				for (const id of nodesState.selectedNodeIds) {
+					const initial = activeInitialPositions[id];
+					if (initial) {
+						nodesState.updateNodePosition(id, initial.x + dx, initial.y + dy);
+					}
+				}
 				
 				// Move geometrically contained children if dragging a frame
 				for (const child of childrenToMove) {
@@ -321,7 +362,7 @@
 	bind:clientWidth={node.actualWidth}
 	bind:clientHeight={node.actualHeight}
 	data-node-id={node.id}
-	class="group transition-shadow outline-none flex flex-col overflow-hidden select-text {node.type === 'frame' ? (nodesState.selectedNodeId === node.id ? 'z-[5] pointer-events-none' : 'z-0 pointer-events-none') : (nodesState.selectedNodeId === node.id ? 'ring-1 ring-[var(--color-accent)] z-20 pointer-events-auto' : 'z-10 pointer-events-auto')} {isNested ? 'relative' : 'absolute'} {node.type === 'frame' ? 'bg-transparent border-0 shadow-none' : 'bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md shadow-lg shadow-black/50'}"
+	class="group transition-shadow outline-none flex flex-col overflow-hidden select-text {node.type === 'frame' ? (nodesState.isNodeSelected(node.id) ? 'z-[5] pointer-events-none' : 'z-0 pointer-events-none') : (nodesState.isNodeSelected(node.id) ? 'ring-1 ring-[var(--color-accent)] z-20 pointer-events-auto' : 'z-10 pointer-events-auto')} {isNested ? 'relative' : 'absolute'} {node.type === 'frame' ? 'bg-transparent border-0 shadow-none' : 'bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md shadow-lg shadow-black/50'}"
 	style="
 		{isNested ? '' : `transform: translate(${node.x}px, ${node.y}px);`} 
 		width: {isNested ? '100%' : node.width + 'px'}; 
@@ -329,6 +370,7 @@
 	"
 	onpointerdown={handlePointerDown}
 	onclickcapture={(e) => { if (dragJustFinished) { e.stopPropagation(); } }}
+	oncontextmenu={(e) => { e.preventDefault(); e.stopPropagation(); openContextMenu(e.clientX, e.clientY, 'node', node.id); }}
 	role="button"
 >
 	{#if node.type !== 'frame'}
