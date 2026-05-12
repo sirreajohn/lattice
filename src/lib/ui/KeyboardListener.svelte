@@ -1,7 +1,11 @@
 <script>
 	import { onMount } from "svelte";
 	import { nodesState } from "$lib/state/nodes.svelte.js";
+	import { canvasState } from "$lib/state/canvas.svelte.js";
 	import { shortcutsState } from "$lib/state/shortcuts.svelte.js";
+
+	let mouseX = 0;
+	let mouseY = 0;
 
 	function handleKeydown(e) {
 		// Ignore if the user is typing in an input field
@@ -12,6 +16,22 @@
 			active.isContentEditable;
 
 		if (isInput) return;
+
+		// Handle copy/paste with modifier keys
+		if (e.metaKey || e.ctrlKey) {
+			const key = e.key.toLowerCase();
+			if (key === 'c' && nodesState.selectedNodeIds.length > 0) {
+				nodesState.copyNodes(nodesState.selectedNodeIds);
+				e.preventDefault();
+				return;
+			}
+			if (key === 'v' && nodesState._clipboard.length > 0) {
+				const canvasPos = canvasState.screenToCanvas(mouseX, mouseY);
+				nodesState.pasteNodes(canvasPos.x, canvasPos.y);
+				e.preventDefault();
+				return;
+			}
+		}
 
 		// Ignore if a modifier is held (unless we add support for them later)
 		if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -71,7 +91,15 @@
 	}
 
 	onMount(() => {
+		function handleMouseMove(e) {
+			mouseX = e.clientX;
+			mouseY = e.clientY;
+		}
 		window.addEventListener("keydown", handleKeydown);
-		return () => window.removeEventListener("keydown", handleKeydown);
+		window.addEventListener("mousemove", handleMouseMove);
+		return () => {
+			window.removeEventListener("keydown", handleKeydown);
+			window.removeEventListener("mousemove", handleMouseMove);
+		};
 	});
 </script>
