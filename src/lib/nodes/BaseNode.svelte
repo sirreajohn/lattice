@@ -10,6 +10,7 @@
 	import DocsNode from './DocsNode.svelte';
 	import SheetNode from './SheetNode.svelte';
 	import FrameNode from './FrameNode.svelte';
+	import StackNode from './StackNode.svelte';
 
 	let { node } = $props();
 
@@ -25,7 +26,7 @@
 		
 		// Always use the OS header as a structural anchor.
 		// If a Deck is filled, restrict dragging strictly to the OS header.
-		if (node.type === 'column') {
+		if (node.type === 'column' || node.type === 'stack') {
 			const hasChildren = nodesState.nodes.some(n => n.parentId === node.id);
 			if (hasChildren && !e.target.closest('.os-header')) return;
 		}
@@ -184,8 +185,8 @@
 				dragJustFinished = true;
 				setTimeout(() => dragJustFinished = false, 50);
 
-				// Snapping into a Deck
-				if (node.type !== 'column') {
+				// Snapping into a Deck or Stack
+				if (node.type !== 'column' && node.type !== 'stack') {
 					const elements = document.elementsFromPoint(ev.clientX, ev.clientY);
 					const deckElement = elements.find(el => el.classList.contains('lattice-deck'));
 					
@@ -193,6 +194,14 @@
 						const deckId = deckElement.getAttribute('data-column-id');
 						if (deckId !== node.id) {
 							nodesState.updateNodeParent(node.id, deckId);
+						}
+					} else {
+						const stackElement = elements.find(el => el.classList.contains('lattice-stack'));
+						if (stackElement) {
+							const stackId = stackElement.getAttribute('data-stack-id');
+							if (stackId !== node.id) {
+								nodesState.updateNodeParent(node.id, stackId);
+							}
 						}
 					}
 				}
@@ -316,7 +325,8 @@
 		image: ImageNode,
 		docs: DocsNode,
 		sheet: SheetNode,
-		frame: FrameNode
+		frame: FrameNode,
+		stack: StackNode
 	};
 
 	let NodeComponent = $derived(
